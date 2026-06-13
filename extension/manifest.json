@@ -1,0 +1,53 @@
+{
+  "manifest_version": 3,
+  "name": "Miyad - Academic Schedule Assistant",
+  "version": "1.0.0",
+  "description": "Capture academic events from Outlook Web App and sync them to Miyad.",
+  "permissions": [
+    "storage",
+    "contextMenus",
+    "alarms"
+  ],
+  "host_permissions": [
+    "https://outlook.office.com/*",
+    "https://outlook.live.com/*",
+    "http://127.0.0.1:8000/*",
+    "http://localhost:8000/*",
+    "https://api.miyad.app/*"
+  ],
+  "optional_host_permissions": [
+    "http://*/*",
+    "https://*/*"
+  ],
+  "background": {
+    "service_worker": "src/background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://outlook.office.com/*",
+        "https://outlook.live.com/*"
+      ],
+      "js": [
+        "src/utils/logger.js",
+        "src/utils/scraper.js",
+        "src/content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_popup": "src/popup/popup.html",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "48": "icons/icon-48.png",
+      "128": "icons/icon-128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon-16.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  }
+}

@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Miyad</title>
+    <link rel="stylesheet" href="popup.css">
+  </head>
+  <body>
+    <main class="shell">
+      <header class="brand">
+        <div class="mark" aria-hidden="true"><span></span></div>
+        <div>
+          <h1>مِيعاد</h1>
+          <p>Academic schedule assistant</p>
+        </div>
+      </header>
+
+      <section id="loadingView" class="panel center">
+        <div class="spinner"></div>
+        <p>جاري التحميل...</p>
+      </section>
+
+      <section id="authView" class="panel hidden">
+        <div class="tabs" role="tablist">
+          <button class="tab active" data-mode="login">دخول</button>
+          <button class="tab" data-mode="register">حساب جديد</button>
+        </div>
+        <form id="authForm">
+          <label id="nameField" class="hidden">الاسم
+            <input id="name" autocomplete="name" placeholder="أحمد">
+          </label>
+          <label>البريد الإلكتروني
+            <input id="email" type="email" autocomplete="email" required placeholder="student@university.edu">
+          </label>
+          <label>كلمة المرور
+            <input id="password" type="password" minlength="8" autocomplete="current-password" required placeholder="••••••••">
+          </label>
+          <label id="universityField" class="hidden">الجامعة
+            <input id="university" autocomplete="organization" placeholder="اسم الجامعة">
+          </label>
+          <button class="primary" type="submit">الاتصال بميعاد</button>
+        </form>
+        <p id="authError" class="error" role="alert"></p>
+      </section>
+
+      <section id="connectedView" class="hidden">
+        <div class="status-card">
+          <div class="status-row">
+            <span class="status-dot"></span>
+            <strong>متصل ويراقب Outlook</strong>
+          </div>
+          <p id="userEmail"></p>
+          <small>لا نطلب كلمة مرور الجامعة. تتم قراءة الرسالة المفتوحة فقط.</small>
+        </div>
+
+        <div class="section-title">
+          <h2>آخر المواعيد</h2>
+          <span id="queueBadge"></span>
+        </div>
+        <div id="recentList" class="recent-list"></div>
+        <button id="logoutButton" class="secondary">تسجيل الخروج</button>
+      </section>
+
+      <details class="advanced">
+        <summary>إعداد الخادم</summary>
+        <label>Backend URL
+          <div class="inline">
+            <input id="apiUrl" type="url">
+            <button id="saveApiUrl" type="button">حفظ</button>
+          </div>
+        </label>
+        <p id="apiError" class="error" role="alert"></p>
+      </details>
+    </main>
+    <script type="module" src="popup.js"></script>
+  </body>
+</html>

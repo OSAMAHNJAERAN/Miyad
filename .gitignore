@@ -1,0 +1,36 @@
+# Secrets and local environment
+.env
+**/.env
+.venv/
+.venv-*/
+venv/
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+
+# Android / Gradle
+.gradle/
+**/build/
+frontend/local.properties
+*.apk
+*.aab
+*.iml
+.idea/
+
+# JavaScript
+node_modules/
+npm-debug.log*
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+*.swp
+
+# Temporary verification outputs
+window_dump.xml
+screenshot_current.png
+screenshot.png
+

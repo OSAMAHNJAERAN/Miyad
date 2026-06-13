@@ -1,0 +1,66 @@
+@font-face {
+  font-family: "Thmanyah";
+  src: url("../../fonts/thmanyahsans-Regular.woff2") format("woff2");
+  font-weight: 400;
+}
+
+@font-face {
+  font-family: "Thmanyah";
+  src: url("../../fonts/thmanyahsans-Bold.woff2") format("woff2");
+  font-weight: 700;
+}
+
+:root {
+  color-scheme: dark;
+  font-family: "Thmanyah", "Segoe UI", sans-serif;
+  background: #101610;
+  color: #f8f9f6;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; width: 370px; min-height: 520px; background: #101610; }
+button, input { font: inherit; }
+button { cursor: pointer; }
+.shell { padding: 20px; }
+.brand { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
+.brand h1 { margin: 0; font-size: 29px; line-height: 1; }
+.brand p { margin: 5px 0 0; color: #aeb5aa; font-size: 11px; direction: ltr; }
+.mark { width: 48px; height: 48px; border-radius: 15px; background: #b8f23a; position: relative; box-shadow: 0 12px 30px #b8f23a24; }
+.mark::before, .mark::after, .mark span { content: ""; position: absolute; background: #101610; border-radius: 4px; }
+.mark::before { width: 8px; height: 25px; right: 12px; top: 11px; }
+.mark::after { width: 8px; height: 18px; right: 22px; top: 18px; }
+.mark span { width: 8px; height: 12px; right: 32px; top: 24px; }
+.panel, .status-card, .recent-item, .advanced { border: 1px solid #2d372b; background: #171e16; border-radius: 20px; }
+.panel { padding: 16px; }
+.center { text-align: center; padding: 50px 16px; color: #aeb5aa; }
+.hidden { display: none !important; }
+.spinner { width: 28px; height: 28px; border: 3px solid #34402f; border-top-color: #b8f23a; border-radius: 50%; margin: 0 auto 12px; animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.tabs { display: grid; grid-template-columns: 1fr 1fr; background: #101610; border-radius: 13px; padding: 4px; margin-bottom: 14px; }
+.tab { border: 0; border-radius: 10px; background: transparent; color: #aeb5aa; padding: 9px; }
+.tab.active { background: #263022; color: #b8f23a; }
+label { display: block; color: #cbd0c8; font-size: 12px; margin-top: 11px; }
+input { width: 100%; margin-top: 6px; border: 1px solid #354032; border-radius: 12px; background: #101610; color: #f8f9f6; padding: 11px 12px; outline: none; direction: ltr; text-align: left; }
+input:focus { border-color: #b8f23a; box-shadow: 0 0 0 3px #b8f23a18; }
+.primary, .secondary { width: 100%; border: 0; border-radius: 14px; padding: 12px; font-weight: 700; margin-top: 16px; }
+.primary { background: #b8f23a; color: #101610; }
+.secondary { background: transparent; border: 1px solid #3a4537; color: #f8f9f6; }
+.error { color: #ff8d8d; min-height: 18px; font-size: 12px; }
+.status-card { padding: 17px; background: linear-gradient(145deg, #1b2619, #151c14); }
+.status-row { display: flex; align-items: center; gap: 8px; color: #dfffa0; }
+.status-dot { width: 9px; height: 9px; border-radius: 50%; background: #b8f23a; box-shadow: 0 0 0 5px #b8f23a15; }
+.status-card p { margin: 8px 0; color: #f8f9f6; direction: ltr; text-align: right; }
+.status-card small { color: #929b8f; line-height: 1.55; }
+.section-title { display: flex; justify-content: space-between; align-items: center; margin: 18px 2px 10px; }
+.section-title h2 { margin: 0; font-size: 15px; }
+#queueBadge { color: #f1d26b; font-size: 11px; }
+.recent-list { display: grid; gap: 8px; }
+.recent-item { padding: 12px; display: grid; grid-template-columns: 34px 1fr; gap: 10px; align-items: center; }
+.recent-icon { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; background: #b8f23a22; color: #b8f23a; }
+.recent-item strong { display: block; font-size: 12px; }
+.recent-item small { display: block; margin-top: 3px; color: #90998d; font-size: 10px; direction: ltr; text-align: right; }
+.empty { color: #879083; text-align: center; padding: 28px 10px; border: 1px dashed #354032; border-radius: 16px; font-size: 12px; }
+.advanced { margin-top: 15px; padding: 12px 14px; color: #9da698; font-size: 11px; }
+.advanced summary { cursor: pointer; }
+.inline { display: grid; grid-template-columns: 1fr auto; gap: 7px; }
+.inline button { margin-top: 6px; border: 0; border-radius: 10px; padding: 0 12px; background: #303b2d; color: #f8f9f6; }
