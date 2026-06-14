@@ -63,6 +63,9 @@ class MiyadRepository(private val tokenStore: TokenStore) {
     suspend fun events(type: String? = null): List<EventDto> =
         api.events(type = type, language = tokenStore.language).events
 
+    suspend fun createEvent(request: EventCreateRequest): EventDto =
+        api.createEvent(request)
+
     suspend fun deleteEvent(id: String) {
         api.deleteEvent(id)
     }
@@ -92,6 +95,7 @@ class MiyadRepository(private val tokenStore: TokenStore) {
             return when (error.code()) {
                 401 -> "Invalid email or password"
                 409 -> "This email is already registered"
+                422 -> "Check the event date, time, and required fields"
                 502, 503 -> "The extraction service is temporarily unavailable"
                 else -> "Request failed (${error.code()})"
             }

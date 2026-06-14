@@ -127,6 +127,47 @@ def test_process_email_dedup_events_patch_delete_and_no_raw_storage() -> None:
         assert "Submit by Friday" not in repr(storage.__dict__)
 
 
+def test_create_independent_calendar_event() -> None:
+    client, _ = make_client()
+    with client:
+        token = register(client)["token"]
+        headers = {"Authorization": f"Bearer {token}"}
+        created = client.post(
+            "/api/events",
+            headers=headers,
+            json={
+                "title": "Study group",
+                "description": "Review chapters 4 and 5",
+                "start_time": "2026-06-20T14:00:00+08:00",
+                "end_time": "2026-06-20T15:30:00+08:00",
+                "all_day": False,
+                "repeat": "weekly",
+                "location": "Library room 2",
+                "reminder": "same_day",
+                "event_color": "#2388C9",
+                "event_type": "other",
+            },
+        )
+        assert created.status_code == 201
+        event = created.json()
+        assert event["due_date"] == "2026-06-20T14:00:00+08:00"
+        assert event["start_time"] == "2026-06-20T14:00:00+08:00"
+        assert event["end_time"] == "2026-06-20T15:30:00+08:00"
+        assert event["repeat"] == "weekly"
+        assert event["event_color"] == "#2388C9"
+
+        invalid = client.post(
+            "/api/events",
+            headers=headers,
+            json={
+                "title": "Invalid range",
+                "start_time": "2026-06-20T15:00:00+08:00",
+                "end_time": "2026-06-20T14:00:00+08:00",
+            },
+        )
+        assert invalid.status_code == 422
+
+
 def test_manual_preview_no_event_and_user_isolation() -> None:
     client, _ = make_client()
     with client:

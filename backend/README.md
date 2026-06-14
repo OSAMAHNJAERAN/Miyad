@@ -29,6 +29,11 @@ events and is executable only by the backend `service_role`.
 
 OpenAPI documentation is available at `http://127.0.0.1:8000/docs`.
 
+`POST /api/events` creates independent manual events with timezone-aware start
+and end times, all-day state, recurrence, reminder, color, description, and
+location. AI-extracted events retain `due_date` compatibility and are mapped to
+the same scheduling fields.
+
 ## Security
 
 - AI and Supabase service keys only exist in backend environment variables.

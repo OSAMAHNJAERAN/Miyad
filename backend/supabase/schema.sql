@@ -34,6 +34,14 @@ CREATE TABLE IF NOT EXISTS events (
     due_date TIMESTAMPTZ NOT NULL,
     location TEXT,
     notes TEXT,
+    description TEXT,
+    start_time TIMESTAMPTZ,
+    end_time TIMESTAMPTZ,
+    all_day BOOLEAN NOT NULL DEFAULT FALSE,
+    repeat TEXT NOT NULL DEFAULT 'none'
+        CHECK (repeat IN ('none', 'daily', 'weekly', 'monthly', 'custom')),
+    event_color TEXT NOT NULL DEFAULT '#B8F23A'
+        CHECK (event_color ~ '^#[0-9A-Fa-f]{6}$'),
     source_hash TEXT,
     reminder TEXT DEFAULT 'one_day'
         CHECK (reminder IN ('same_day', 'one_day', 'one_week', 'none')),
@@ -45,6 +53,31 @@ CREATE TABLE IF NOT EXISTS events (
 );
 
 CREATE INDEX IF NOT EXISTS idx_events_user_date ON events(user_id, due_date);
+
+ALTER TABLE events ADD COLUMN IF NOT EXISTS description TEXT;
+ALTER TABLE events ADD COLUMN IF NOT EXISTS start_time TIMESTAMPTZ;
+ALTER TABLE events ADD COLUMN IF NOT EXISTS end_time TIMESTAMPTZ;
+ALTER TABLE events ADD COLUMN IF NOT EXISTS all_day BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE events ADD COLUMN IF NOT EXISTS repeat TEXT NOT NULL DEFAULT 'none';
+ALTER TABLE events ADD COLUMN IF NOT EXISTS event_color TEXT NOT NULL DEFAULT '#B8F23A';
+
+UPDATE events
+SET
+    description = COALESCE(description, notes),
+    start_time = COALESCE(start_time, due_date),
+    end_time = COALESCE(end_time, due_date + INTERVAL '1 hour')
+WHERE start_time IS NULL OR end_time IS NULL;
+
+ALTER TABLE events
+    DROP CONSTRAINT IF EXISTS events_repeat_check;
+ALTER TABLE events
+    ADD CONSTRAINT events_repeat_check
+    CHECK (repeat IN ('none', 'daily', 'weekly', 'monthly', 'custom'));
+ALTER TABLE events
+    DROP CONSTRAINT IF EXISTS events_event_color_check;
+ALTER TABLE events
+    ADD CONSTRAINT events_event_color_check
+    CHECK (event_color ~ '^#[0-9A-Fa-f]{6}$');
 
 CREATE OR REPLACE FUNCTION save_extraction(
     p_user_id UUID,
@@ -77,6 +110,12 @@ BEGIN
         due_date,
         location,
         notes,
+        description,
+        start_time,
+        end_time,
+        all_day,
+        repeat,
+        event_color,
         source_hash,
         reminder
     )
@@ -88,6 +127,12 @@ BEGIN
         (item->>'due_date')::TIMESTAMPTZ,
         NULLIF(item->>'location', ''),
         NULLIF(item->>'notes', ''),
+        NULLIF(item->>'notes', ''),
+        (item->>'due_date')::TIMESTAMPTZ,
+        (item->>'due_date')::TIMESTAMPTZ + INTERVAL '1 hour',
+        FALSE,
+        'none',
+        '#B8F23A',
         p_hash,
         'one_day'
     FROM jsonb_array_elements(p_events) AS item

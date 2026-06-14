@@ -4,11 +4,20 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Depends, HTTPException
 
 from app.api.dependencies import get_current_user, get_storage
-from app.schemas.event import EventResponse, EventsResponse, EventUpdate
+from app.schemas.event import EventCreate, EventResponse, EventsResponse, EventUpdate
 from app.services.storage import Storage
 
 
 router = APIRouter(prefix="/api/events", tags=["events"])
+
+
+@router.post("", response_model=EventResponse, status_code=201)
+def create_event(
+    payload: EventCreate,
+    user: Annotated[dict, Depends(get_current_user)],
+    storage: Annotated[Storage, Depends(get_storage)],
+) -> EventResponse:
+    return EventResponse.model_validate(storage.create_event(user["id"], payload))
 
 
 @router.get("", response_model=EventsResponse)

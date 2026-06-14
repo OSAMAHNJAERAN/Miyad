@@ -1,223 +1,288 @@
-You are an expert full-stack developer. I already have an existing app and browser extension project. Do not rebuild from scratch. Your task is to inspect the current codebase, understand the existing structure, fix the current issues, improve the UI/UX, connect the extension with the main app/backend properly, and fully test everything until it works smoothly.
+You are a senior full-stack engineer, UI/UX motion designer, and system architect.
 
-Project context:
-The app is an Arabic/English student appointment and scheduling app called “Meead / ميعاد”. It includes a mobile-style UI, calendar, events, schedule pages, statistics, account page, and a browser extension. The current design uses a dark/green modern theme with a bright lime accent color. Keep the same general identity, but polish and improve the implementation.
+You are working on an existing production-level project called “Meead / ميعاد”, a student scheduling + calendar + browser extension system.
 
-Main required fixes and improvements:
+IMPORTANT:
+- DO NOT rebuild the project from scratch.
+- Work directly inside the existing repository.
+- Analyze first, then modify.
+- Ensure everything is fully functional and tested.
 
-1. Fix the extension connection issue
-- The extension currently shows a “Failed to fetch” error during login/register or backend connection.
-- Debug the extension API requests and make sure the extension can communicate correctly with the backend.
-- Check CORS, base API URL, environment variables, request headers, authentication flow, and API response handling.
-- Make sure the extension and the main app are connected to the same backend.
-- Test the extension in the browser manually after fixing it.
-- Confirm that login, signup, remote connection, fetching data, and saving data all work correctly.
-- Do not leave placeholder endpoints or dummy fetch logic unless clearly marked as development-only.
+GitHub Repository (SOURCE OF TRUTH):
+https://github.com/OSAMAHNJAERAN/Miyad.git
 
-2. Backend requirement: FastAPI + PostgreSQL
-Use FastAPI for the backend because it is fast, async-based, scalable, and can handle high request loads.
+---
 
-Use PostgreSQL as the main database, preferably through Supabase free tier or a standard PostgreSQL connection.
+## 🔥 CORE GOAL
+Transform this project into a highly polished, modern, premium-quality application with:
+- Smooth animations
+- Beautiful micro-interactions
+- Seamless UI transitions
+- Fully working backend + extension integration
+- Calendar system like Google Calendar
+- Professional production-level architecture
 
-Required backend stack:
-- FastAPI
-- PostgreSQL
-- SQLAlchemy or SQLModel
-- Alembic migrations if suitable
+---
+
+# 1. FULL SYSTEM FIX (CRITICAL)
+Fix all current broken functionality:
+
+### Extension Issue
+- Fix "Failed to fetch" error in browser extension
+- Ensure proper API connection between extension and backend
+- Fix CORS issues
+- Fix base URL misconfiguration
+- Ensure authentication works from extension
+
+---
+
+# 2. BACKEND ARCHITECTURE (MANDATORY)
+
+Use industry-standard backend stack:
+
+### MUST USE:
+- FastAPI (async backend)
+- PostgreSQL (via Supabase or direct DB)
+- SQLAlchemy / SQLModel
 - Pydantic schemas
-- Async database operations where appropriate
-- Secure authentication flow
-- Environment variables through `.env`
-- Proper CORS setup for both the web app and browser extension
+- JWT authentication
+- dotenv environment management
 
-The backend must support:
-- User signup
-- User login
-- Authentication/session/token handling
-- User profile data
-- Events/appointments CRUD
-- Calendar event fetching
-- Language preference
-- University field
-- Extension-to-backend communication
+### Backend must support:
+- User authentication (signup/login)
+- Event CRUD system
+- Calendar event retrieval
+- Language preference storage
+- Extension + App shared data access
 
-3. Fix account/signup/login screen
-Based on the first reference screenshot:
-- Keep the dark theme and lime green accent.
-- Fix the “Failed to fetch” error.
-- Ensure all form fields are correctly validated:
-  - Name
-  - Email
-  - Password
-  - University
-- Make Arabic layout RTL clean and consistent.
-- Add clear error messages in Arabic and English depending on selected language.
-- Improve the login/signup toggle so it feels polished and responsive.
-- Ensure the “Remote connect / الاتصال بميعاد” button actually connects to the backend.
+---
 
-4. Event and appointment system
-Improve the appointment/event system so it works like Google Calendar in terms of flexibility.
+# 3. EVENT SYSTEM (GOOGLE CALENDAR STYLE)
 
-Each event must be independent and customizable. For every event, the user should be able to set:
-- Event title
+Each event must be independent.
+
+Event fields:
+- Title
 - Description
 - Date
 - Start time
 - End time
-- All-day option
-- Repeating option:
-  - Does not repeat
+- All-day toggle
+- Repeat options:
+  - None
   - Daily
   - Weekly
   - Monthly
-  - Custom repeat if possible
-- Location or online link if suitable
-- Reminder/notification option if suitable
-- Event color/category if suitable
+  - Custom (if possible)
+- Location / online link
+- Reminder option
+- Event color/category
 
-Important:
-- Do not make all appointments follow one global time.
-- Each event must have its own date, time, duration, and repeat settings.
-- Calendar, schedule page, home page, and extension must all read from the same event data source.
-- Events should be saved in PostgreSQL and fetched through FastAPI.
+IMPORTANT:
+- Each event has its own time system
+- Do NOT use global scheduling
+- All data stored in PostgreSQL
+- All platforms read same data source
 
-5. Calendar UI improvement
-In the calendar page:
-- If a single day has multiple events, show multiple small dots under the day number.
-- Each dot should represent one event.
-- If there are many events, show up to a reasonable limit such as 3 dots, then indicate more events if needed.
-- Tapping/clicking the day should show the list of events for that date.
-- Support both Arabic RTL and English LTR layouts.
+---
 
-6. Bottom navigation bar redesign
-Use the second reference image as the visual inspiration for the bottom navigation bar.
+# 4. CALENDAR UI IMPROVEMENTS
+
+- If multiple events exist on a day:
+  - Show multiple dots under the date number
+  - Max 3 visible dots, then "+more" indicator if needed
+- Clicking a date shows full event list
+- Smooth transitions when opening day details
+
+---
+
+# 5. BOTTOM NAVIGATION BAR REDESIGN
+
+Use modern floating pill-style navigation:
+
+### Requirements:
+- Fully rounded corners
+- Floating glass / soft UI style
+- Smooth shadows
+- Center action button replaces scan icon
+
+### Center button:
+- Large "+"
+- Lime green
+- Elevated (floating effect)
+- On click → opens “Add Event” modal/screen
+
+### Navigation items:
+- Home / الرئيسية
+- Calendar / جدولي
+- + Add Event (center)
+- Statistics / إحصائياتي
+- Account / حسابي
+
+---
+
+# 6. LANGUAGE SYSTEM
+
+Replace toggle with proper language selector:
+
+- Arabic (RTL layout)
+- English (LTR layout)
 
 Requirements:
-- Bottom bar should have smooth rounded corners.
-- It should look modern, soft, floating, and polished.
-- Keep the current concept but improve the design.
-- Change the icons and labels to fit this app.
-- Replace the current middle scan button with a large centered plus button.
-- The plus button should be lime green and visually elevated.
-- When the user taps the plus button, it should open the “Add Event” screen/modal.
-- Suggested navigation items:
-  - Home / الرئيسية
-  - Calendar or Schedule / جدولي
-  - Add Event button in the center / +
-  - Statistics / إحصائياتي
-  - Account / حسابي
-- Use proper Arabic and English labels based on selected language.
-- Make active/inactive states clear.
-- Keep the design responsive for mobile.
+- Persistent language storage
+- Full UI translation:
+  - buttons
+  - labels
+  - errors
+  - navigation
+- Instant UI switching without reload issues
 
-7. Replace the current image/logo asset
-The current image shown in the third reference screenshot must be replaced inside the app code and assets.
+---
 
-Replace it with the new provided image asset named:
+# 7. IMAGE / ASSET REPLACEMENT
+
+Replace existing image asset:
+
 “ChatGPT Image Jun 10, 2026, 08_08_15 PM”
 
-Important:
-- Replace it everywhere it appears: splash screen, logo area, loading screen, empty states, or onboarding if used.
-- Update asset imports and paths correctly.
-- Do not leave the old image referenced in the code.
-- Make sure the new image appears cleanly and is not stretched or pixelated.
+Replace everywhere:
+- Splash screen
+- Logo
+- Loading states
+- Empty states
+- Onboarding screens
 
-8. Language selection improvement
-Do not make language switching happen only by pressing a simple toggle button.
+Ensure:
+- No stretching
+- Proper scaling
+- Optimized rendering
 
-Instead, implement a clear language selector:
-- Arabic
-- English
+---
 
-The language selector can be:
-- Dropdown
-- Segmented control
-- Settings option
-- First-time onboarding selector
+# 8. UI/UX MOTION DESIGN (VERY IMPORTANT 🔥)
 
-Requirements:
-- Arabic should use RTL layout.
-- English should use LTR layout.
-- All main texts, labels, buttons, errors, and navigation items should be translated.
-- Store the selected language in user preferences or local storage/database.
-- The selected language should persist after refresh/restart.
+Upgrade entire UI with premium animations.
 
-9. Integration between app, extension, and backend
-Make sure the whole system works together:
-- Main app uses FastAPI backend.
-- Browser extension uses the same backend.
-- PostgreSQL stores users and events.
-- Login/signup works from both app and extension if applicable.
-- Events created in the app should appear in the extension if the extension displays events.
-- Events created from the extension should appear in the app if extension event creation exists.
-- No disconnected mock data should remain in production flow.
+You MUST implement:
 
-10. Testing requirement
-Do not stop after coding. You must test the project.
+### A. Micro-interactions
+- Button press animations (scale down → bounce back)
+- Card hover lift effect
+- Smooth ripple effect on tap
+- Input field focus glow animation
 
-Testing checklist:
-- Run backend server.
-- Check database connection.
-- Run frontend/app.
-- Load browser extension.
-- Test signup.
-- Test login.
-- Test Arabic language.
-- Test English language.
-- Test add event.
-- Test all-day event.
-- Test daily repeating event.
-- Test event with custom start/end time.
-- Test multiple events on the same calendar day.
-- Test calendar dots under the date.
-- Test bottom navigation plus button.
-- Test extension API connection.
-- Confirm “Failed to fetch” is fixed.
-- Confirm there are no console errors.
-- Confirm there are no broken imports or missing assets.
+---
 
-11. Code quality
-- Keep the codebase clean and organized.
-- Do not hardcode API keys or secrets.
-- Use `.env.example` for required environment variables.
-- Use clear file names.
-- Remove unused code and unused assets if safe.
-- Add comments only where helpful.
-- Keep UI components reusable.
-- Keep backend routes organized by feature.
-- Make the project easy to run locally.
+### B. Page transitions
+- Smooth fade + slide transitions between screens
+- Bottom nav switch animation (active icon morph effect)
+- Modal open/close with spring animation
 
-12. Documentation
-Create or update a file named `change.md`.
+---
 
-Every change you make must be documented inside `change.md`.
+### C. Calendar animations
+- Date selection highlight animation (smooth circle expand)
+- Event dots appear with fade + scale
+- Month switching slide animation
 
-The file must include:
-- Files created
-- Files modified
+---
+
+### D. Add Event animation
+- Plus button expands into modal
+- Form fields animate sequentially (stagger animation)
+- Save button success animation (checkmark pulse)
+
+---
+
+### E. Background UI enhancement
+- Subtle animated gradient lights in background
+- Soft floating glow particles (very low opacity)
+- Smooth ambient motion (non-distracting)
+
+---
+
+### F. Icon animations
+- Active icon slightly bounces or glows
+- Smooth icon transitions (not static switching)
+
+---
+
+IMPORTANT:
+- Animations must be smooth (60fps)
+- Use modern libraries like Framer Motion (or equivalent)
+- Keep performance optimized (no lag)
+- Do NOT over-animate (keep premium minimal style)
+
+---
+
+# 9. FULL INTEGRATION REQUIREMENTS
+
+Ensure all systems are connected:
+
+- Web App ↔ FastAPI Backend
+- Browser Extension ↔ FastAPI Backend
+- PostgreSQL ↔ All data storage
+- Events sync across all platforms
+- No mock data in production flow
+
+---
+
+# 10. TESTING REQUIREMENTS (MANDATORY)
+
+After implementation:
+
+Test:
+- Signup/Login
+- Extension connection
+- Event creation
+- Event repetition
+- Calendar multi-event dots
+- Language switching
+- Arabic RTL layout
+- Animation performance
+- API stability
+- No console errors
+
+---
+
+# 11. CODE QUALITY
+
+- Clean architecture
+- Modular components
+- Reusable UI components
+- No hardcoded secrets
+- Proper .env usage
+- Remove unused code
+- Organized folder structure
+
+---
+
+# 12. DOCUMENTATION
+
+Create/update:
+change.md
+
+Must include:
+- All fixes
+- All UI upgrades
 - Backend changes
-- Frontend/UI changes
-- Extension changes
-- Database changes
-- Environment variables added
-- Assets replaced
-- Bugs fixed
-- Testing performed
-- Any assumptions made
-- Remaining notes if something requires manual setup such as Supabase credentials
+- Extension fixes
+- Database schema
+- Animation libraries used
+- Issues fixed (especially "Failed to fetch")
+- Testing results
 
-13. Final expected result
-The final result must be a working polished system:
-- FastAPI backend connected to PostgreSQL/Supabase
-- Main app connected to backend
-- Browser extension connected to backend
-- No “Failed to fetch” error
-- Professional Arabic/English UI
-- Google Calendar-like event creation
-- Multiple dots under calendar dates with multiple events
-- Modern rounded bottom navigation bar with centered plus button
-- New image asset replacing the old one
-- Fully tested and documented in `change.md`
+---
 
-Important:
-Do not only explain or plan. Implement the fixes directly in the codebase, run the project, test it, and document everything.
+# FINAL GOAL
+
+Deliver a production-ready system that feels:
+- Smooth like a modern mobile app
+- Beautiful like a premium SaaS product
+- Fully functional across app + extension
+- Highly animated with premium UX motion design
+- Stable backend with FastAPI + PostgreSQL
+
+Do not stop at coding.
+Do not leave incomplete features.
+Fully implement, test, and ensure everything works together.

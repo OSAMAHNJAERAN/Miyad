@@ -138,8 +138,8 @@ test("network failures queue once and a later retry clears the queue", async () 
     throw new Error("offline");
   };
 
-  await assert.rejects(background.processEmail(email), /offline/);
-  await assert.rejects(background.processEmail(email), /offline/);
+  await assert.rejects(background.processEmail(email), /Could not reach/);
+  await assert.rejects(background.processEmail(email), /Could not reach/);
   assert.equal(localData[STORAGE.QUEUE].length, 1);
   localData[STORAGE.QUEUE][0].nextAttemptAt = 0;
 
@@ -267,4 +267,98 @@ test("local hash cache remains bounded to 500 newest entries", async () => {
   assert.equal(localData[STORAGE.HASHES].length, 500);
   assert.ok(localData[STORAGE.HASHES][0].endsWith("509"));
   assert.ok(localData[STORAGE.HASHES][499].endsWith("010"));
+});
+
+test("status reports backend health and configured URL", async () => {
+  reset();
+  globalThis.fetch = async (url) => {
+    if (url.endsWith("/health")) {
+      return okJson({
+        status: "ok",
+        environment: "test",
+        database: "memory"
+      });
+    }
+    return okJson({ connected: true });
+  };
+
+  const response = await sendMessage({ type: "STATUS" });
+  assert.equal(response.ok, true);
+  assert.equal(response.data.backend.reachable, true);
+  assert.equal(response.data.backend.apiUrl, "http://127.0.0.1:8000");
+  assert.equal(response.data.backend.database, "memory");
+});
+
+test("health check returns actionable details when backend is offline", async () => {
+  reset();
+  globalThis.fetch = async () => {
+    throw new Error("offline");
+  };
+
+  const health = await background.checkBackend();
+  assert.equal(health.reachable, false);
+  assert.match(health.error, /127\.0\.0\.1:8000/);
+  assert.match(health.error, /running/);
+});
+
+test("theme and language preferences normalize and persist", async () => {
+  reset();
+  delete syncData[STORAGE.TOKEN];
+  globalThis.fetch = async () => okJson({});
+
+  const themeResponse = await sendMessage({
+    type: "SET_THEME",
+    theme: "dark"
+  });
+  const languageResponse = await sendMessage({
+    type: "SET_LANGUAGE",
+    language: "ar-SA"
+  });
+
+  assert.equal(themeResponse.data.theme, "dark");
+  assert.equal(languageResponse.data.language, "ar");
+  assert.equal(syncData[STORAGE.THEME], "dark");
+  assert.equal(syncData[STORAGE.LANGUAGE], "ar");
+  assert.equal(background.normalizeTheme("unknown"), "system");
+  assert.equal(background.normalizeLanguage("fr-FR"), "en");
+});
+
+test("authenticated language preferences synchronize through api settings", async () => {
+  reset();
+  syncData[STORAGE.USER] = {
+    email: "student@example.edu",
+    preferred_language: "en"
+  };
+  let patch = null;
+  globalThis.fetch = async (url, options = {}) => {
+    if (url.endsWith("/api/settings") && options.method === "PATCH") {
+      patch = JSON.parse(options.body);
+      return okJson({ preferred_language: patch.preferred_language });
+    }
+    return okJson({ preferred_language: "ar" });
+  };
+
+  const response = await sendMessage({
+    type: "SET_LANGUAGE",
+    language: "ar"
+  });
+
+  assert.equal(response.ok, true);
+  assert.deepEqual(patch, { preferred_language: "ar" });
+  assert.equal(syncData[STORAGE.USER].preferred_language, "ar");
+});
+
+test("authenticated UI preferences use the account language", async () => {
+  reset();
+  syncData[STORAGE.THEME] = "light";
+  syncData[STORAGE.LANGUAGE] = "en";
+  syncData[STORAGE.USER] = { email: "student@example.edu" };
+  globalThis.fetch = async () => okJson({ preferred_language: "ar" });
+
+  const response = await sendMessage({ type: "UI_PREFERENCES" });
+
+  assert.equal(response.data.theme, "light");
+  assert.equal(response.data.language, "ar");
+  assert.equal(response.data.hasStoredLanguage, true);
+  assert.equal(syncData[STORAGE.LANGUAGE], "ar");
 });

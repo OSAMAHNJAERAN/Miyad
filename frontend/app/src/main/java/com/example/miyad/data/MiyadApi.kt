@@ -23,6 +23,9 @@ interface MiyadApi {
         @Query("language") language: String? = null
     ): EventsResponse
 
+    @POST("api/events")
+    suspend fun createEvent(@Body request: EventCreateRequest): EventDto
+
     @DELETE("api/events/{id}")
     suspend fun deleteEvent(@Path("id") id: String): DeleteResponse
 

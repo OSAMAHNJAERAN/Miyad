@@ -1,5 +1,112 @@
 # Change Log
 
+## 2026-06-13: Unified Glass Redesign
+
+### Android
+
+- Added encrypted `system`, `light`, and `dark` theme persistence with immediate
+  runtime switching.
+- Added shared glass background/card/status components and adaptive color tokens.
+- Moved body, form, card, and navigation typography to Thmanyah Sans.
+- Redesigned authentication with a glass panel, password visibility, keyboard
+  insets, and adaptive contrast.
+- Added keyboard-aware floating navigation and retained the five-position model
+  with the central Add action.
+- Replaced Add Event text date/time entry with native Material pickers.
+- Moved recurrence, reminder, location, description, and color into expandable
+  optional details with a fixed save action.
+- Added Home quick actions and relabeled progress as a truthful week timeline.
+- Added a Canvas event-breakdown chart driven by actual event counts.
+- Added a System/Light/Dark selector to Account.
+- Split theme, glass components, Add Event, form validation, and statistics into
+  dedicated source files while preserving backend payloads.
+
+### Chrome extension
+
+- Rebuilt the popup as a 390px adaptive glass surface with light/dark/system
+  themes and solid fallbacks.
+- Replaced the CSS mark with the real Miyad logo and local SVG UI icons.
+- Added complete Arabic and English dictionaries using `data-i18n` bindings.
+- Added browser-locale pre-login language, authenticated account-language sync,
+  immediate RTL/LTR switching, and persisted theme/language selectors.
+- Added service-worker preference messages using existing `GET/PATCH
+  /api/settings`.
+- Added skeleton loading, disabled/loading submission, inline validation,
+  visible focus states, retry UI, `aria-live` feedback, and reduced-motion CSS.
+- Preserved health checks, auth, recent events, retry queue, backend settings,
+  Outlook processing, and heartbeat behavior.
+
+### Verification
+
+- Backend: `11 passed`.
+- Extension: `22 passed`, including dictionary parity, locale fallback, theme
+  persistence, account language synchronization, and popup token checks.
+- Android: unit tests, lint, and debug APK assembly passed.
+- Android light and dark authentication captures:
+  `screenshots/runtime_glass_current.png` and
+  `screenshots/runtime_glass_auth_dark.png`.
+- Browser screenshot automation was unavailable in the Windows sandbox; static
+  extension UI verification is documented in `design-qa.md`.
+
+## 2026-06-13: Event System, Floating Navigation, And Extension Connectivity
+
+### Backend and database
+
+- Added authenticated `POST /api/events` for independent manual calendar events.
+- Added description, start time, end time, all-day, repeat, reminder, event color,
+  location, and event type fields while preserving `due_date` compatibility for
+  AI-extracted events.
+- Added timezone and end-after-start validation.
+- Extended in-memory and Supabase storage implementations.
+- Added idempotent PostgreSQL migration statements and extraction defaults.
+- Added API tests for successful event creation and invalid time ranges.
+
+### Android app
+
+- Replaced the four-item dark bar with the supplied floating white pill direction.
+- Added Home, Calendar, elevated Add Event, Statistics, and Account destinations.
+- Added a connected Add Event sheet with all requested scheduling controls.
+- Added Statistics and retained Smart Extraction through a Home action.
+- Calendar days now show three independently colored dots and an overflow count.
+- Event details now show start/end time, recurrence, and description.
+- Added spring navigation feedback, animated form entrance, and native ripple.
+- Replaced splash and empty-state artwork with the supplied Miyad logo reference.
+
+### Extension and "Failed to fetch"
+
+- Added an explicit `/health` probe for the configured backend.
+- Popup status now distinguishes a reachable backend from an unavailable URL.
+- Network and timeout errors include the backend origin and actionable guidance.
+- Added a visible connection test beside backend URL configuration.
+- Preserved heartbeats, permissions, retry queue, deduplication, and extraction.
+- Added healthy/offline backend status tests.
+
+### Visual QA
+
+- Captured runtime states in `screenshots/runtime_latest.png` and
+  `screenshots/runtime_add_event.png`.
+- Runtime QA found a partially collapsed Add Event sheet; it was fixed by forcing
+  the sheet to open fully expanded.
+- `design-qa.md` records the comparison and passes.
+
+### Verification
+
+- Backend: `11 passed in 4.16s`.
+- Backend `/health`: development, memory database, status `ok`.
+- Extension: `15 passed`; JavaScript syntax checks succeeded.
+- Android JVM tests, lint, and debug APK assembly succeeded.
+- Debug APK: `frontend/app/build/outputs/apk/debug/app-debug.apk`
+  (`23,142,942` bytes).
+- Emulator install and launch succeeded; no Miyad `AndroidRuntime` crash appeared.
+
+### External production checks still required
+
+- Apply the updated schema to the production Supabase project.
+- Supply production Supabase, JWT, CORS, and OpenRouter environment values.
+- Set the extension Backend URL to the deployed HTTPS API and grant that origin.
+- Test against a signed-in Outlook Web App account.
+- Live OpenRouter and production Supabase calls remain credential-dependent.
+
 ## 2026-06-11: Connected Product Implementation
 
 ### Architecture decision

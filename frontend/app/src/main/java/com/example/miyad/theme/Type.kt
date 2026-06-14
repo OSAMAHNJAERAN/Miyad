@@ -121,21 +121,21 @@ val Typography = Typography(
 
     // ── Body: النصوص الطويلة والأوصاف
     bodyLarge = TextStyle(
-        fontFamily = ThmanyahSerifText,
+        fontFamily = ThmanyahSans,
         fontWeight = FontWeight.Normal,
         fontSize = 16.sp,
         lineHeight = 26.sp,
         letterSpacing = 0.5.sp
     ),
     bodyMedium = TextStyle(
-        fontFamily = ThmanyahSerifText,
+        fontFamily = ThmanyahSans,
         fontWeight = FontWeight.Normal,
         fontSize = 14.sp,
         lineHeight = 22.sp,
         letterSpacing = 0.25.sp
     ),
     bodySmall = TextStyle(
-        fontFamily = ThmanyahSerifText,
+        fontFamily = ThmanyahSans,
         fontWeight = FontWeight.Light,
         fontSize = 12.sp,
         lineHeight = 18.sp,

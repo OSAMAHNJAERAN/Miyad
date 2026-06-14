@@ -4,12 +4,14 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.miyad.data.EventDto
+import com.example.miyad.data.EventCreateRequest
 import com.example.miyad.data.MiyadRepository
 import com.example.miyad.data.TokenStore
 import com.example.miyad.data.UserDto
 import com.example.miyad.data.UserSettingsDto
 import com.example.miyad.data.UserSettingsUpdate
 import com.example.miyad.notifications.ReminderScheduler
+import com.example.miyad.theme.ThemeMode
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -19,6 +21,7 @@ import kotlinx.coroutines.launch
 data class AppUiState(
     val initialized: Boolean = false,
     val language: String = "ar",
+    val themeMode: ThemeMode = ThemeMode.System,
     val onboardingComplete: Boolean = false,
     val authenticated: Boolean = false,
     val user: UserDto? = null,
@@ -46,6 +49,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             it.copy(
                 initialized = true,
                 language = tokenStore.language,
+                themeMode = tokenStore.themeMode,
                 onboardingComplete = tokenStore.onboardingComplete,
                 authenticated = hasToken,
                 user = tokenStore.user
@@ -67,6 +71,11 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 }
             }
         }
+    }
+
+    fun setThemeMode(themeMode: ThemeMode) {
+        tokenStore.themeMode = themeMode
+        _state.update { it.copy(themeMode = themeMode) }
     }
 
     fun completeOnboarding() {
@@ -154,6 +163,38 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     fun selectEvent(event: EventDto?) {
         _state.update { it.copy(selectedEvent = event) }
+    }
+
+    fun createEvent(request: EventCreateRequest, onCreated: () -> Unit = {}) {
+        viewModelScope.launch {
+            _state.update { it.copy(loading = true, error = null) }
+            runCatching { repository.createEvent(request) }
+                .onSuccess { event ->
+                    val events = (_state.value.events + event).sortedBy { it.due_date }
+                    reminderScheduler.sync(
+                        events,
+                        _state.value.settings,
+                        _state.value.language
+                    )
+                    _state.update {
+                        it.copy(
+                            events = events,
+                            loading = false,
+                            message = if (it.language == "ar") {
+                                "تمت إضافة الموعد إلى تقويمك"
+                            } else {
+                                "Event added to your calendar"
+                            }
+                        )
+                    }
+                    onCreated()
+                }
+                .onFailure { error ->
+                    _state.update {
+                        it.copy(loading = false, error = repository.friendlyError(error))
+                    }
+                }
+        }
     }
 
     fun deleteSelectedEvent() {
@@ -259,6 +300,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             AppUiState(
                 initialized = true,
                 language = it.language,
+                themeMode = it.themeMode,
                 onboardingComplete = true
             )
         }

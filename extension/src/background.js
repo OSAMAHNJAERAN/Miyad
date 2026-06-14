@@ -4,6 +4,8 @@ export const STORAGE = {
   TOKEN: "miyad_user_token",
   USER: "miyad_user",
   API_URL: "miyad_api_url",
+  THEME: "miyad_theme",
+  LANGUAGE: "miyad_prelogin_language",
   HASHES: "miyad_processed_hashes",
   RECENT: "miyad_recent_events",
   QUEUE: "miyad_retry_queue"
@@ -13,6 +15,8 @@ const MAX_HASHES = 500;
 const MAX_RECENT = 8;
 const RETRY_ALARM = "miyad-retry";
 const REQUEST_TIMEOUT_MS = 15_000;
+const THEMES = new Set(["system", "light", "dark"]);
+const LANGUAGES = new Set(["ar", "en"]);
 
 async function syncGet(keys) {
   return chrome.storage.sync.get(keys);
@@ -89,6 +93,57 @@ export function normalizeApiUrl(value) {
   return url.origin;
 }
 
+export function normalizeTheme(value) {
+  return THEMES.has(value) ? value : "system";
+}
+
+export function normalizeLanguage(value) {
+  const language = String(value || "").toLowerCase().split("-")[0];
+  return LANGUAGES.has(language) ? language : "en";
+}
+
+async function accountLanguage() {
+  const values = await syncGet([
+    STORAGE.TOKEN,
+    STORAGE.USER,
+    STORAGE.LANGUAGE
+  ]);
+  let language = normalizeLanguage(
+    values[STORAGE.LANGUAGE] || values[STORAGE.USER]?.preferred_language
+  );
+  if (values[STORAGE.TOKEN]) {
+    try {
+      const settings = await callApi("/api/settings");
+      language = normalizeLanguage(settings.preferred_language || language);
+      await chrome.storage.sync.set({
+        [STORAGE.LANGUAGE]: language,
+        [STORAGE.USER]: {
+          ...(values[STORAGE.USER] || {}),
+          preferred_language: language
+        }
+      });
+    } catch {
+      // The stored language keeps the popup usable while the backend is offline.
+    }
+  }
+  return language;
+}
+
+export async function getUiPreferences() {
+  const values = await syncGet([
+    STORAGE.THEME,
+    STORAGE.LANGUAGE,
+    STORAGE.TOKEN
+  ]);
+  return {
+    theme: normalizeTheme(values[STORAGE.THEME]),
+    language: await accountLanguage(),
+    hasStoredLanguage: Boolean(
+      values[STORAGE.LANGUAGE] || values[STORAGE.TOKEN]
+    )
+  };
+}
+
 export async function callApi(path, options = {}) {
   const { token, apiUrl } = await apiConfig();
   const headers = { "Content-Type": "application/json", ...(options.headers || {}) };
@@ -103,7 +158,12 @@ export async function callApi(path, options = {}) {
       signal: options.signal || controller.signal
     });
   } catch (error) {
-    throw new ApiError(error.message || "Network request failed");
+    const reason = error?.name === "AbortError"
+      ? "The backend request timed out."
+      : "Could not reach the Miyad backend.";
+    throw new ApiError(
+      `${reason} Check that ${apiUrl} is running and allowed in the extension settings.`
+    );
   } finally {
     clearTimeout(timeout);
   }
@@ -117,6 +177,25 @@ export async function callApi(path, options = {}) {
     );
   }
   return body;
+}
+
+export async function checkBackend() {
+  const { apiUrl } = await apiConfig();
+  try {
+    const health = await callApi("/health");
+    return {
+      reachable: health.status === "ok",
+      apiUrl,
+      environment: health.environment || "",
+      database: health.database || ""
+    };
+  } catch (error) {
+    return {
+      reachable: false,
+      apiUrl,
+      error: error.message
+    };
+  }
 }
 
 export async function processEmail(email, force = false) {
@@ -262,6 +341,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
           [STORAGE.USER]: result.user
         });
         await sendHeartbeat().catch(() => {});
+        await accountLanguage();
         return result;
       }
       case "REGISTER": {
@@ -274,6 +354,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
           [STORAGE.USER]: result.user
         });
         await sendHeartbeat().catch(() => {});
+        await accountLanguage();
         return result;
       }
       case "LOGOUT":
@@ -281,23 +362,53 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         return { success: true };
       case "STATUS": {
         const sync = await syncGet([STORAGE.TOKEN, STORAGE.USER, STORAGE.API_URL]);
-        if (sync[STORAGE.TOKEN]) {
+        const backend = await checkBackend();
+        if (sync[STORAGE.TOKEN] && backend.reachable) {
           await sendHeartbeat().catch(() => {});
         }
         const local = await localGet([STORAGE.RECENT, STORAGE.QUEUE]);
+        const preferences = await getUiPreferences();
         return {
           connected: Boolean(sync[STORAGE.TOKEN]),
+          backend,
           user: sync[STORAGE.USER] || null,
           apiUrl: sync[STORAGE.API_URL] || DEFAULT_API_URL,
           recent: local[STORAGE.RECENT] || [],
-          queued: (local[STORAGE.QUEUE] || []).length
+          queued: (local[STORAGE.QUEUE] || []).length,
+          preferences
         };
+      }
+      case "UI_PREFERENCES":
+        return getUiPreferences();
+      case "SET_THEME": {
+        const theme = normalizeTheme(message.theme);
+        await chrome.storage.sync.set({ [STORAGE.THEME]: theme });
+        return { theme };
+      }
+      case "SET_LANGUAGE": {
+        const language = normalizeLanguage(message.language);
+        const values = await syncGet([STORAGE.TOKEN, STORAGE.USER]);
+        const updates = { [STORAGE.LANGUAGE]: language };
+        if (values[STORAGE.USER]) {
+          updates[STORAGE.USER] = {
+            ...values[STORAGE.USER],
+            preferred_language: language
+          };
+        }
+        await chrome.storage.sync.set(updates);
+        if (values[STORAGE.TOKEN]) {
+          await callApi("/api/settings", {
+            method: "PATCH",
+            body: JSON.stringify({ preferred_language: language })
+          });
+        }
+        return { language };
       }
       case "SET_API_URL":
         await chrome.storage.sync.set({
           [STORAGE.API_URL]: normalizeApiUrl(message.apiUrl)
         });
-        return { success: true };
+        return checkBackend();
       default:
         throw new Error("Unknown message");
     }

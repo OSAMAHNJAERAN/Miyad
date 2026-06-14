@@ -9,7 +9,7 @@ from uuid import uuid4
 import httpx
 
 from app.core.config import Settings
-from app.schemas.event import EventUpdate, ExtractedEvent
+from app.schemas.event import EventCreate, EventUpdate, ExtractedEvent
 from app.schemas.settings import UserSettings, UserSettingsUpdate
 
 
@@ -43,6 +43,11 @@ class Storage(ABC):
         to_date: datetime | None,
         event_type: str | None,
     ) -> list[dict[str, Any]]: ...
+
+    @abstractmethod
+    def create_event(
+        self, user_id: str, event: EventCreate
+    ) -> dict[str, Any]: ...
 
     @abstractmethod
     def delete_event(self, user_id: str, event_id: str) -> bool: ...
@@ -122,6 +127,12 @@ class InMemoryStorage(Storage):
                     "id": str(uuid4()),
                     "user_id": user_id,
                     **item.model_dump(mode="json"),
+                    "description": item.notes,
+                    "start_time": item.due_date.isoformat(),
+                    "end_time": (item.due_date + timedelta(hours=1)).isoformat(),
+                    "all_day": False,
+                    "repeat": "none",
+                    "event_color": "#B8F23A",
                     "source_hash": email_hash,
                     "created_at": now.isoformat(),
                     "reminder": "one_day",
@@ -151,6 +162,31 @@ class InMemoryStorage(Storage):
                 continue
             rows.append(dict(row))
         return sorted(rows, key=lambda item: item["due_date"])
+
+    def create_event(self, user_id: str, event: EventCreate) -> dict[str, Any]:
+        now = datetime.now(timezone.utc)
+        row = {
+            "id": str(uuid4()),
+            "user_id": user_id,
+            "title": event.title,
+            "course_code": None,
+            "event_type": event.event_type,
+            "due_date": event.start_time.isoformat(),
+            "location": event.location,
+            "notes": event.description,
+            "description": event.description,
+            "start_time": event.start_time.isoformat(),
+            "end_time": event.end_time.isoformat(),
+            "all_day": event.all_day,
+            "repeat": event.repeat,
+            "event_color": event.event_color,
+            "source_hash": None,
+            "created_at": now.isoformat(),
+            "reminder": event.reminder,
+        }
+        with self._lock:
+            self.events[row["id"]] = row
+        return dict(row)
 
     def delete_event(self, user_id: str, event_id: str) -> bool:
         row = self.events.get(event_id)
@@ -289,6 +325,29 @@ class SupabaseStorage(Storage):
         if event_type:
             params["event_type"] = f"eq.{event_type}"
         return self._request("GET", "events", params=params).json()
+
+    def create_event(self, user_id: str, event: EventCreate) -> dict[str, Any]:
+        payload = {
+            "user_id": user_id,
+            "title": event.title,
+            "event_type": event.event_type,
+            "due_date": event.start_time.isoformat(),
+            "location": event.location,
+            "notes": event.description,
+            "description": event.description,
+            "start_time": event.start_time.isoformat(),
+            "end_time": event.end_time.isoformat(),
+            "all_day": event.all_day,
+            "repeat": event.repeat,
+            "event_color": event.event_color,
+            "reminder": event.reminder,
+        }
+        return self._request(
+            "POST",
+            "events",
+            json=payload,
+            headers={"Prefer": "return=representation"},
+        ).json()[0]
 
     def delete_event(self, user_id: str, event_id: str) -> bool:
         rows = self._request(

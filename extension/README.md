@@ -15,6 +15,11 @@ currently visible message to the Miyad backend.
 The popup defaults to `http://127.0.0.1:8000`. Production deployments can use
 `https://api.miyad.app`.
 
+The popup probes `GET /health` and displays the configured backend origin. Use
+**اختبار الاتصال** after changing the URL. If the local backend is not running
+or a deployed URL is incorrect, the popup reports an actionable connection
+message instead of the browser's generic `Failed to fetch`.
+
 Authenticated popup activity sends a backend heartbeat so the Android app can
 show whether the extension connected recently. Custom backend URLs request only
 that origin through optional host permissions; unsafe URL schemes and embedded

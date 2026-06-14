@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ar" dir="rtl">
+<html lang="en" dir="ltr" data-theme="system">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -8,69 +8,111 @@
   </head>
   <body>
     <main class="shell">
-      <header class="brand">
-        <div class="mark" aria-hidden="true"><span></span></div>
-        <div>
-          <h1>مِيعاد</h1>
-          <p>Academic schedule assistant</p>
+      <header class="glass brand">
+        <img class="brand-logo" src="../../icons/icon-128.png" alt="">
+        <div class="brand-copy">
+          <h1 data-i18n="appName">Miyad</h1>
+          <p data-i18n="tagline">Academic schedule assistant</p>
+        </div>
+        <div class="preferences">
+          <label class="sr-only" for="themeSelect" data-i18n="themeLabel">Theme</label>
+          <select id="themeSelect" data-i18n-aria="themeLabel">
+            <option value="system" data-i18n="themeSystem">System</option>
+            <option value="light" data-i18n="themeLight">Light</option>
+            <option value="dark" data-i18n="themeDark">Dark</option>
+          </select>
+          <label class="sr-only" for="languageSelect" data-i18n="languageLabel">Language</label>
+          <select id="languageSelect" data-i18n-aria="languageLabel">
+            <option value="en">EN</option>
+            <option value="ar">ع</option>
+          </select>
         </div>
       </header>
 
-      <section id="loadingView" class="panel center">
-        <div class="spinner"></div>
-        <p>جاري التحميل...</p>
+      <div id="globalStatus" class="sr-only" aria-live="polite"></div>
+
+      <section id="loadingView" class="glass panel loading-view">
+        <div class="skeleton skeleton-title"></div>
+        <div class="skeleton skeleton-line"></div>
+        <div class="skeleton skeleton-line short"></div>
+        <p data-i18n="loading">Loading your schedule...</p>
       </section>
 
-      <section id="authView" class="panel hidden">
+      <section id="authView" class="glass panel hidden">
+        <div id="connectionStatus" class="connection-status hidden" role="status"></div>
+        <button id="retryButton" class="retry-button hidden" type="button">
+          <img src="../../icons/refresh.svg" alt="">
+          <span data-i18n="retry">Retry</span>
+        </button>
         <div class="tabs" role="tablist">
-          <button class="tab active" data-mode="login">دخول</button>
-          <button class="tab" data-mode="register">حساب جديد</button>
+          <button class="tab active" type="button" role="tab" data-mode="login" data-i18n="login">Sign in</button>
+          <button class="tab" type="button" role="tab" data-mode="register" data-i18n="register">Create account</button>
         </div>
-        <form id="authForm">
-          <label id="nameField" class="hidden">الاسم
-            <input id="name" autocomplete="name" placeholder="أحمد">
+        <form id="authForm" novalidate>
+          <label id="nameField" class="field hidden">
+            <span data-i18n="name">Name</span>
+            <input id="name" autocomplete="name" data-i18n-placeholder="namePlaceholder">
+            <small class="field-error"></small>
           </label>
-          <label>البريد الإلكتروني
+          <label class="field">
+            <span data-i18n="email">Email</span>
             <input id="email" type="email" autocomplete="email" required placeholder="student@university.edu">
+            <small class="field-error"></small>
           </label>
-          <label>كلمة المرور
+          <label class="field">
+            <span data-i18n="password">Password</span>
             <input id="password" type="password" minlength="8" autocomplete="current-password" required placeholder="••••••••">
+            <small class="field-error"></small>
           </label>
-          <label id="universityField" class="hidden">الجامعة
-            <input id="university" autocomplete="organization" placeholder="اسم الجامعة">
+          <label id="universityField" class="field hidden">
+            <span data-i18n="university">University</span>
+            <input id="university" autocomplete="organization" data-i18n-placeholder="universityPlaceholder">
+            <small class="field-error"></small>
           </label>
-          <button class="primary" type="submit">الاتصال بميعاد</button>
+          <button id="authSubmit" class="primary" type="submit">
+            <span class="button-label" data-i18n="connect">Connect to Miyad</span>
+            <span class="button-loader" aria-hidden="true"></span>
+          </button>
         </form>
-        <p id="authError" class="error" role="alert"></p>
+        <p id="authError" class="error" role="alert" aria-live="assertive"></p>
+        <p class="account-sync" data-i18n="accountSync">Language is synced with your Miyad account.</p>
       </section>
 
       <section id="connectedView" class="hidden">
-        <div class="status-card">
+        <div class="glass status-card">
           <div class="status-row">
             <span class="status-dot"></span>
-            <strong>متصل ويراقب Outlook</strong>
+            <strong data-i18n="connectedTitle">Connected and monitoring Outlook</strong>
           </div>
           <p id="userEmail"></p>
-          <small>لا نطلب كلمة مرور الجامعة. تتم قراءة الرسالة المفتوحة فقط.</small>
+          <small data-i18n="privacyNote">Miyad reads only the email you open.</small>
         </div>
 
         <div class="section-title">
-          <h2>آخر المواعيد</h2>
-          <span id="queueBadge"></span>
+          <h2 data-i18n="recentEvents">Recent events</h2>
+          <span id="queueBadge" class="queue-badge"></span>
         </div>
         <div id="recentList" class="recent-list"></div>
-        <button id="logoutButton" class="secondary">تسجيل الخروج</button>
+        <button id="logoutButton" class="secondary" type="button">
+          <img src="../../icons/logout.svg" alt="">
+          <span data-i18n="logout">Log out</span>
+        </button>
       </section>
 
-      <details class="advanced">
-        <summary>إعداد الخادم</summary>
-        <label>Backend URL
+      <details class="glass advanced">
+        <summary>
+          <img src="../../icons/settings.svg" alt="">
+          <span data-i18n="serverSettings">Server settings</span>
+        </summary>
+        <label class="field">
+          <span data-i18n="backendUrl">Backend URL</span>
           <div class="inline">
             <input id="apiUrl" type="url">
-            <button id="saveApiUrl" type="button">حفظ</button>
+            <button id="saveApiUrl" type="button" data-i18n="save">Save</button>
           </div>
         </label>
-        <p id="apiError" class="error" role="alert"></p>
+        <button id="testApiUrl" class="test-connection" type="button" data-i18n="testConnection">Test connection</button>
+        <p id="apiError" class="error" role="alert" aria-live="assertive"></p>
       </details>
     </main>
     <script type="module" src="popup.js"></script>

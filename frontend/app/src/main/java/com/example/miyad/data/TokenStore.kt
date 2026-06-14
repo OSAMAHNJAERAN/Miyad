@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import com.google.gson.Gson
+import com.example.miyad.theme.ThemeMode
 
 class TokenStore(context: Context) {
     private val gson = Gson()
@@ -41,6 +42,12 @@ class TokenStore(context: Context) {
         get() = preferences.getString("language", "ar") ?: "ar"
         set(value) {
             preferences.edit().putString("language", value).apply()
+        }
+
+    var themeMode: ThemeMode
+        get() = ThemeMode.fromStorage(preferences.getString("theme_mode", null))
+        set(value) {
+            preferences.edit().putString("theme_mode", value.storageValue).apply()
         }
 
     var onboardingComplete: Boolean
