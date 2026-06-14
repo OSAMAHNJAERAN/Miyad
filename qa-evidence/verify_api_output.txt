@@ -1,0 +1,66 @@
+=== Testing Health ===
+Health Status Code: 200
+Health Response: {'status': 'ok', 'environment': 'development', 'database': 'memory'}
+
+=== Testing Registration ===
+Register Status Code: 201
+Register Response: {'user': {'id': '4f040e0c-c687-4dcb-aa78-c2d41ce76102', 'email': 'test_verify@example.edu', 'name': 'Audit Verification', 'university': 'Audit University', 'preferred_language': 'ar'}, 'token': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI0ZjA0MGUwYy1jNjg3LTRkY2ItYWE3OC1jMmQ0MWNlNzYxMDIiLCJpYXQiOjE3ODE0NDgwNzcsImV4cCI6MTc4MjA1Mjg3NywidHlwZSI6ImFjY2VzcyJ9.PCgfjKg0dv1JFinruKZX3jzP-2HUrDIsXjJoJUduIZw'}
+
+=== Testing Login ===
+Login Status Code: 200
+Login Response keys: ['user', 'token']
+
+=== Testing Invalid Login ===
+Invalid Login Status Code: 401
+
+=== Testing Protected Route Settings (Default) ===
+Settings Status Code: 200
+Settings Response: {'preferred_language': 'ar', 'notifications_enabled': True, 'reminder_same_day': True, 'reminder_one_day': True, 'reminder_one_week': False, 'extension_connected': False}
+
+=== Testing Extension Heartbeat ===
+Heartbeat Status Code: 200
+Heartbeat Response: {'connected': True}
+
+=== Testing Protected Route Settings (After Heartbeat) ===
+Settings Response after Heartbeat: {'preferred_language': 'ar', 'notifications_enabled': True, 'reminder_same_day': True, 'reminder_one_day': True, 'reminder_one_week': False, 'extension_connected': True}
+
+=== Testing Event Creation ===
+Create Event Status Code: 201
+Create Event Response: {'title': 'Study Group Session', 'course_code': None, 'event_type': 'other', 'due_date': '2026-06-20T14:00:00+08:00', 'location': 'Virtual', 'notes': 'Prepare for the final exam', 'id': '077f0b01-d220-47a9-9b37-79613c874618', 'source_hash': None, 'created_at': '2026-06-14T14:41:19.482130Z', 'reminder': 'same_day', 'description': 'Prepare for the final exam', 'start_time': '2026-06-20T14:00:00+08:00', 'end_time': '2026-06-20T15:30:00+08:00', 'all_day': False, 'repeat': 'weekly', 'event_color': '#FF5733'}
+
+=== Testing Invalid Event Creation (End before Start) ===
+Invalid Event Status Code: 422
+Invalid Event Response: {'detail': [{'type': 'value_error', 'loc': ['body'], 'msg': 'Value error, end_time must be after start_time', 'input': {'title': 'Study Group Session', 'description': 'Prepare for the final exam', 'start_time': '2026-06-20T14:00:00+08:00', 'end_time': '2026-06-20T13:00:00+08:00', 'all_day': False, 'repeat': 'weekly', 'location': 'Virtual', 'reminder': 'same_day', 'event_color': '#FF5733', 'event_type': 'other'}, 'ctx': {'error': {}}}]}
+
+=== Testing Event Listing & Filtering ===
+List Events Status Code: 200
+List Events Count: 1
+
+=== Testing Event Patch/Update ===
+Patch Event Status Code: 200
+Patch Event Response: {'title': 'Study Group Session', 'course_code': None, 'event_type': 'other', 'due_date': '2026-06-20T14:00:00+08:00', 'location': 'Library Room 1', 'notes': 'Prepare for the final exam', 'id': '077f0b01-d220-47a9-9b37-79613c874618', 'source_hash': None, 'created_at': '2026-06-14T14:41:19.482130Z', 'reminder': 'same_day', 'description': 'Prepare for the final exam', 'start_time': '2026-06-20T14:00:00+08:00', 'end_time': '2026-06-20T15:30:00+08:00', 'all_day': False, 'repeat': 'weekly', 'event_color': '#FF5733'}
+
+=== Testing Process Email ===
+Process Email Status Code: 200
+Process Email Response: {'status': 'success', 'events_created': 1, 'events': [{'title': 'اختبار منتصف الفصل', 'course_code': 'MATH301', 'event_type': 'exam', 'due_date': '2026-06-16T13:00:00+08:00', 'location': 'القاعة 4-B', 'notes': 'إحضار الآلة الحاسبة والبطاقة الجامعية.'}]}
+
+=== Testing Duplicate Email Process ===
+Duplicate Email Status Code: 200
+Duplicate Email Response: {'status': 'already_processed', 'events_created': 0, 'events': []}
+
+=== Testing Manual Extraction Preview ===
+Manual Preview Status Code: 200
+Manual Preview Response: {'status': 'preview', 'events_created': 0, 'events': [{'title': 'اختبار منتصف الفصل', 'course_code': 'MATH301', 'event_type': 'exam', 'due_date': '2026-06-16T13:00:00+08:00', 'location': 'القاعة 4-B', 'notes': 'إحضار الآلة الحاسبة والبطاقة الجامعية.'}]}
+
+=== Testing Manual Extraction Save ===
+Manual Save Status Code: 200
+Manual Save Response: {'status': 'success', 'events_created': 1, 'events': [{'title': 'اختبار منتصف الفصل', 'course_code': 'MATH301', 'event_type': 'exam', 'due_date': '2026-06-16T13:00:00+08:00', 'location': 'القاعة 4-B', 'notes': 'إحضار الآلة الحاسبة والبطاقة الجامعية.'}]}
+
+=== Testing Event Deletion ===
+Delete Event Status Code: 200
+Delete Event Response: {'success': True}
+
+=== Testing Multi-Tenant Separation ===
+Second user deleting first user's event status: 404
+
+ALL LOCAL API FLOW TESTS PASSED SUCCESSFULLY!

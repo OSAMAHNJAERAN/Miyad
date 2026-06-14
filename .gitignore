@@ -33,4 +33,7 @@ Thumbs.db
 window_dump.xml
 screenshot_current.png
 screenshot.png
+chrome_err.txt
+chrome_out.txt
+chrome-profile/
 

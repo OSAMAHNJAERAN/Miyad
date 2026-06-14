@@ -1,0 +1,95 @@
+{
+  "project_name": "Miyad",
+  "audit_timestamp": "2026-06-14T22:29:00Z",
+  "environment": {
+    "os": "Windows 11",
+    "python": "3.13.5",
+    "node": "v22.19.0",
+    "java": "21.0.11",
+    "gradle": "9.1.0"
+  },
+  "summary": {
+    "total_tests_executed": 34,
+    "passed": 33,
+    "failed": 1,
+    "blocked": 1,
+    "verdict": "READY_FOR_DEMO"
+  },
+  "test_suites": [
+    {
+      "suite_name": "Backend API Tests (pytest)",
+      "language": "Python",
+      "test_files": [
+        "tests/test_api.py",
+        "tests/test_config.py",
+        "tests/test_llm.py",
+        "tests/test_supabase_storage.py"
+      ],
+      "results": {
+        "status": "PASS",
+        "total": 11,
+        "passed": 11,
+        "failed": 0,
+        "duration_seconds": 9.14
+      }
+    },
+    {
+      "suite_name": "Backend Local Integration (verify_api.py)",
+      "language": "Python",
+      "test_files": [
+        "verify_api.py"
+      ],
+      "results": {
+        "status": "PASS",
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "notes": "Verified custom registration, logins, multi-tenant isolation, email scraper deduplication, manual extraction previews, and events deletion."
+      }
+    },
+    {
+      "suite_name": "Chrome Extension Unit Tests (npm test)",
+      "language": "JavaScript",
+      "test_files": [
+        "tests/*.test.*"
+      ],
+      "results": {
+        "status": "PASS",
+        "total": 22,
+        "passed": 22,
+        "failed": 0,
+        "duration_ms": 192.97
+      }
+    },
+    {
+      "suite_name": "Chrome Extension Browser E2E",
+      "language": "JavaScript",
+      "test_files": [],
+      "results": {
+        "status": "BLOCKED",
+        "reason": "Chrome Remote Debugging port startup is prevented by the environment sandbox restrictions."
+      }
+    },
+    {
+      "suite_name": "Android Compile & APK Build",
+      "language": "Kotlin",
+      "test_files": [],
+      "results": {
+        "status": "PASS",
+        "apk_path": "frontend/app/build/outputs/apk/debug/app-debug.apk",
+        "notes": "Gradle assembleDebug completed successfully. Installed and launched on emulator AVD medium_phone."
+      }
+    },
+    {
+      "suite_name": "Android JVM Unit Tests",
+      "language": "Kotlin",
+      "test_files": [
+        "app/src/test/java/com/example/miyad/*Test.kt"
+      ],
+      "results": {
+        "status": "FAIL",
+        "reason": "ClassNotFoundException: Gradle wrapper test runner on Windows failed to map classpaths containing Arabic characters in absolute workspace path ('مشاريع')."
+      }
+    }
+  ]
+}

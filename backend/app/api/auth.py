@@ -8,6 +8,8 @@ from app.schemas.auth import AuthResponse, LoginRequest, RegisterRequest, UserRe
 from app.services.storage import Storage
 
 
+from app.core.rate_limit import RateLimiter
+
 router = APIRouter(prefix="/api/auth", tags=["authentication"])
 
 
@@ -16,7 +18,10 @@ def public_user(user: dict) -> UserResponse:
 
 
 @router.post(
-    "/register", response_model=AuthResponse, status_code=status.HTTP_201_CREATED
+    "/register",
+    response_model=AuthResponse,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(RateLimiter(5, 3600))],
 )
 def register(
     payload: RegisterRequest,
@@ -43,7 +48,7 @@ def register(
     )
 
 
-@router.post("/login", response_model=AuthResponse)
+@router.post("/login", response_model=AuthResponse, dependencies=[Depends(RateLimiter(5, 60))])
 def login(
     payload: LoginRequest,
     request: Request,

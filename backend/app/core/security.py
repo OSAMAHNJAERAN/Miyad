@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Any
 
 import bcrypt
@@ -20,11 +20,14 @@ def verify_password(password: str, password_hash: str) -> bool:
         return False
 
 
-def create_access_token(user_id: str, secret: str) -> str:
-    # Sessions intentionally persist until explicit logout, so no exp claim is set.
+def create_access_token(user_id: str, secret: str, expires_delta: timedelta | None = None) -> str:
+    now = datetime.now(timezone.utc)
+    if expires_delta is None:
+        expires_delta = timedelta(days=7)
     payload = {
         "sub": user_id,
-        "iat": int(datetime.now(timezone.utc).timestamp()),
+        "iat": int(now.timestamp()),
+        "exp": int((now + expires_delta).timestamp()),
         "type": "access",
     }
     return jwt.encode(payload, secret, algorithm=ALGORITHM)

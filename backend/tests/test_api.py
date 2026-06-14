@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from fastapi.testclient import TestClient
 
@@ -8,6 +8,7 @@ from app.schemas.email import EmailMetadata
 from app.schemas.event import ExtractedEvent
 from app.services.llm import Extractor
 from app.services.storage import InMemoryStorage
+from app.core.rate_limit import reset_rate_limiter
 
 
 class FakeExtractor(Extractor):
@@ -38,6 +39,7 @@ class FakeExtractor(Extractor):
 
 
 def make_client() -> tuple[TestClient, InMemoryStorage]:
+    reset_rate_limiter()
     storage = InMemoryStorage()
     settings = Settings(
         environment="test",
@@ -261,3 +263,33 @@ def test_arabic_and_english_samples_filters_and_ownership() -> None:
             json={"title": "Not yours"},
         ).status_code == 404
         assert len(client.get("/api/events", headers=first_headers).json()["events"]) == 2
+
+
+def test_token_expiration() -> None:
+    client, _ = make_client()
+    with client:
+        auth = register(client, "expire@example.edu")
+        user_id = auth["user"]["id"]
+        from app.core.security import create_access_token
+        expired_token = create_access_token(
+            user_id,
+            client.app.state.settings.jwt_secret,
+            expires_delta=timedelta(days=-1)
+        )
+        r = client.get("/api/settings", headers={"Authorization": f"Bearer {expired_token}"})
+        assert r.status_code == 401
+        assert "Invalid authentication token" in r.json()["detail"]
+
+
+def test_rate_limiting() -> None:
+    client, _ = make_client()
+    with client:
+        payload = {"email": "rate@example.edu", "password": "wrong"}
+        status_codes = []
+        for _ in range(6):
+            r = client.post("/api/auth/login", json=payload)
+            status_codes.append(r.status_code)
+        assert status_codes[:5] == [401, 401, 401, 401, 401]
+        assert status_codes[5] == 429
+        assert "Too many requests" in r.json()["detail"]
+

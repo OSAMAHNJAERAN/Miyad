@@ -61,7 +61,10 @@ async def run_extraction(
     )
 
 
-@router.post("/process-email", response_model=ProcessEmailResponse)
+from app.core.rate_limit import RateLimiter
+
+
+@router.post("/process-email", response_model=ProcessEmailResponse, dependencies=[Depends(RateLimiter(30, 60))])
 async def process_email(
     payload: ProcessEmailRequest,
     user: Annotated[dict, Depends(get_current_user)],
@@ -79,7 +82,7 @@ async def process_email(
     )
 
 
-@router.post("/extract-manual", response_model=ProcessEmailResponse)
+@router.post("/extract-manual", response_model=ProcessEmailResponse, dependencies=[Depends(RateLimiter(10, 60))])
 async def extract_manual(
     payload: ManualExtractRequest,
     user: Annotated[dict, Depends(get_current_user)],
