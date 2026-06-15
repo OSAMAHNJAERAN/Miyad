@@ -1,3 +1,5 @@
+import java.io.File
+
 plugins {
   alias(libs.plugins.android.application)
   alias(libs.plugins.compose.compiler)
@@ -12,13 +14,13 @@ android {
         targetSdk = 36
         versionCode = 1
         versionName = "1.0"
-        buildConfigField("String", "API_BASE_URL", "\"http://10.0.2.2:8000/\"")
+        buildConfigField("String", "API_BASE_URL", "\"http://192.168.0.7:8000/\"")
     }
 
     signingConfigs {
         create("release") {
             val keystorePath = System.getenv("ANDROID_KEYSTORE_PATH")
-            if (keystorePath != null && java.io.File(keystorePath).exists()) {
+            if (keystorePath != null && File(keystorePath).exists()) {
                 storeFile = file(keystorePath)
                 storePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
                 keyAlias = System.getenv("ANDROID_KEYSTORE_ALIAS")
@@ -29,7 +31,7 @@ android {
 
     buildTypes {
         debug {
-            buildConfigField("String", "API_BASE_URL", "\"http://10.0.2.2:8000/\"")
+            buildConfigField("String", "API_BASE_URL", "\"http://192.168.0.7:8000/\"")
         }
         create("staging") {
             initWith(getByName("debug"))
@@ -40,7 +42,7 @@ android {
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             buildConfigField("String", "API_BASE_URL", "\"https://api.miyad.app/\"")
             val keystorePath = System.getenv("ANDROID_KEYSTORE_PATH")
-            if (keystorePath != null && java.io.File(keystorePath).exists()) {
+            if (keystorePath != null && File(keystorePath).exists()) {
                 signingConfig = signingConfigs.getByName("release")
             }
         }
