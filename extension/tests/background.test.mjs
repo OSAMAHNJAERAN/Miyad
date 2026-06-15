@@ -132,6 +132,65 @@ test("processEmail stores a local hash and skips duplicates", async () => {
   assert.equal(localData[STORAGE.RECENT].length, 1);
 });
 
+test("current email is previewed before explicit confirmation saves it", async () => {
+  reset();
+  await sendMessage({ type: "EMAIL_DETECTED", email });
+  const requests = [];
+  globalThis.fetch = async (url, options = {}) => {
+    requests.push({ url, body: options.body ? JSON.parse(options.body) : null });
+    if (url.endsWith("/api/preview-email")) {
+      return okJson({
+        status: "preview",
+        events_created: 0,
+        events: [{
+          title: "Database Assignment",
+          event_type: "deadline",
+          due_date: "2026-06-12T23:59:00+08:00",
+          confidence: "high",
+          source_email_subject: email.subject,
+          source_email_sender: email.sender,
+          evidence: "Submit by Friday at 11:59 PM."
+        }]
+      });
+    }
+    if (url.endsWith("/api/confirm-extraction")) {
+      return okJson({
+        status: "success",
+        events_created: 1,
+        events: requests[0].body ? [{
+          title: "Database Assignment",
+          event_type: "deadline",
+          due_date: "2026-06-12T23:59:00+08:00"
+        }] : []
+      });
+    }
+    return okJson({ connected: true });
+  };
+
+  const preview = await sendMessage({ type: "PREVIEW_CURRENT_EMAIL" });
+  assert.equal(preview.ok, true);
+  assert.equal(preview.data.status, "preview");
+  assert.equal(localData[STORAGE.HASHES], undefined);
+  assert.ok(requests[0].url.endsWith("/api/preview-email"));
+
+  const confirmation = await sendMessage({
+    type: "CONFIRM_CURRENT_PREVIEW",
+    events: [{
+      ...preview.data.events[0],
+      title: "Reviewed Database Assignment",
+      location: "Updated LMS room"
+    }]
+  });
+  assert.equal(confirmation.ok, true);
+  assert.ok(requests[1].url.endsWith("/api/confirm-extraction"));
+  assert.equal(
+    requests[1].body.events[0].title,
+    "Reviewed Database Assignment"
+  );
+  assert.equal(requests[1].body.events[0].location, "Updated LMS room");
+  assert.equal(localData[STORAGE.HASHES].length, 1);
+});
+
 test("network failures queue once and a later retry clears the queue", async () => {
   reset();
   globalThis.fetch = async () => {

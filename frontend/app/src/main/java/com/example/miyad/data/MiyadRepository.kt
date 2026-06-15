@@ -73,6 +73,25 @@ class MiyadRepository(private val tokenStore: TokenStore) {
     suspend fun updateReminder(id: String, reminder: String): EventDto =
         api.updateEvent(id, EventUpdateRequest(reminder = reminder))
 
+    suspend fun updateEvent(id: String, request: EventCreateRequest): EventDto =
+        api.updateEvent(
+            id,
+            EventUpdateRequest(
+                title = request.title,
+                event_type = request.event_type,
+                description = request.description ?: "",
+                due_date = request.start_time,
+                start_time = request.start_time,
+                end_time = request.end_time,
+                all_day = request.all_day,
+                repeat = request.repeat,
+                notes = request.description ?: "",
+                location = request.location ?: "",
+                reminder = request.reminder,
+                event_color = request.event_color
+            )
+        )
+
     suspend fun extract(text: String, save: Boolean): ExtractionResponse =
         api.extractManual(
             ManualExtractRequest(
@@ -83,10 +102,45 @@ class MiyadRepository(private val tokenStore: TokenStore) {
             )
         )
 
+    suspend fun confirmReviewedExtraction(
+        text: String,
+        events: List<EventDto>
+    ): ExtractionResponse =
+        api.confirmManualExtraction(
+            ConfirmManualExtractionRequest(
+                raw_content = text,
+                timestamp = OffsetDateTime.now(ZoneId.systemDefault()).toString(),
+                timezone = ZoneId.systemDefault().id,
+                events = events
+            )
+        )
+
     suspend fun settings(): UserSettingsDto = api.settings()
 
     suspend fun updateSettings(update: UserSettingsUpdate): UserSettingsDto =
         api.updateSettings(update)
+
+    suspend fun getCourses(): List<CourseDto> = api.getCourses()
+
+    suspend fun createCourse(request: CourseCreateDto): CourseDto = api.createCourse(request)
+
+    suspend fun deleteCourse(courseCode: String) {
+        api.deleteCourse(courseCode)
+    }
+
+    suspend fun getSchedule(): List<ScheduleDto> = api.getSchedule()
+
+    suspend fun createSchedule(request: ScheduleCreateDto): ScheduleDto = api.createSchedule(request)
+
+    suspend fun deleteSchedule(slotId: String) {
+        api.deleteSchedule(slotId)
+    }
+
+    suspend fun getAlerts(statusFilter: String? = "pending"): List<VerificationAlertDto> =
+        api.getAlerts(statusFilter)
+
+    suspend fun resolveAlert(alertId: String, action: String): VerificationAlertDto =
+        api.resolveAlert(alertId, AlertResolutionDto(action))
 
     fun logout() = tokenStore.clearSession()
 

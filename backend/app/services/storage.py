@@ -68,11 +68,44 @@ class Storage(ABC):
     @abstractmethod
     def mark_extension_seen(self, user_id: str) -> None: ...
 
+    @abstractmethod
+    def list_courses(self, user_id: str) -> list[dict[str, Any]]: ...
+
+    @abstractmethod
+    def create_or_update_course(self, user_id: str, course_code: str, course_name: str, teaching_plan: str | None) -> dict[str, Any]: ...
+
+    @abstractmethod
+    def delete_course(self, user_id: str, course_code: str) -> bool: ...
+
+    @abstractmethod
+    def list_schedule(self, user_id: str) -> list[dict[str, Any]]: ...
+
+    @abstractmethod
+    def create_schedule(self, user_id: str, data: dict[str, Any]) -> dict[str, Any]: ...
+
+    @abstractmethod
+    def delete_schedule(self, user_id: str, slot_id: str) -> bool: ...
+
+    @abstractmethod
+    def list_alerts(self, user_id: str, status: str | None = None) -> list[dict[str, Any]]: ...
+
+    @abstractmethod
+    def get_alert(self, user_id: str, alert_id: str) -> dict[str, Any] | None: ...
+
+    @abstractmethod
+    def create_alert(self, user_id: str, alert_data: dict[str, Any]) -> dict[str, Any]: ...
+
+    @abstractmethod
+    def update_alert_status(self, user_id: str, alert_id: str, status: str) -> dict[str, Any] | None: ...
+
 
 class InMemoryStorage(Storage):
     def __init__(self) -> None:
         self.users: dict[str, dict[str, Any]] = {}
         self.user_ids_by_email: dict[str, str] = {}
+        self.courses: dict[str, dict[str, Any]] = {}
+        self.study_schedule: dict[str, dict[str, Any]] = {}
+        self.verification_alerts: dict[str, dict[str, Any]] = {}
         self.hashes: set[tuple[str, str]] = set()
         self.events: dict[str, dict[str, Any]] = {}
         self.settings: dict[str, dict[str, Any]] = {}
@@ -129,10 +162,13 @@ class InMemoryStorage(Storage):
                     **item.model_dump(mode="json"),
                     "description": item.notes,
                     "start_time": item.due_date.isoformat(),
-                    "end_time": (item.due_date + timedelta(hours=1)).isoformat(),
-                    "all_day": False,
+                    "end_time": (
+                        item.due_date
+                        + (timedelta(days=1) if item.all_day else timedelta(hours=1))
+                    ).isoformat(),
+                    "all_day": item.all_day,
                     "repeat": "none",
-                    "event_color": "#B8F23A",
+                    "event_color": "#BCDA4B",
                     "source_hash": email_hash,
                     "created_at": now.isoformat(),
                     "reminder": "one_day",
@@ -201,7 +237,27 @@ class InMemoryStorage(Storage):
         row = self.events.get(event_id)
         if not row or row["user_id"] != user_id:
             return None
-        row.update(update.model_dump(exclude_none=True, mode="json"))
+        changes = update.model_dump(exclude_none=True, mode="json")
+        for field in ("description", "notes", "location"):
+            if changes.get(field) == "":
+                changes[field] = None
+        if "start_time" in changes and "due_date" not in changes:
+            changes["due_date"] = changes["start_time"]
+        if "due_date" in changes and "start_time" not in changes:
+            changes["start_time"] = changes["due_date"]
+        if "description" in changes and "notes" not in changes:
+            changes["notes"] = changes["description"]
+        if "notes" in changes and "description" not in changes:
+            changes["description"] = changes["notes"]
+        effective_start = datetime.fromisoformat(
+            changes.get("start_time", row["start_time"])
+        )
+        effective_end = datetime.fromisoformat(
+            changes.get("end_time", row["end_time"])
+        )
+        if effective_end <= effective_start:
+            raise ValueError("end_time must be after start_time")
+        row.update(changes)
         return dict(row)
 
     def get_settings(self, user_id: str) -> dict[str, Any]:
@@ -232,6 +288,123 @@ class InMemoryStorage(Storage):
 
     def mark_extension_seen(self, user_id: str) -> None:
         self.extension_last_seen[user_id] = datetime.now(timezone.utc)
+
+    def list_courses(self, user_id: str) -> list[dict[str, Any]]:
+        with self._lock:
+            return [dict(c) for c in self.courses.values() if c["user_id"] == user_id]
+
+    def create_or_update_course(self, user_id: str, course_code: str, course_name: str, teaching_plan: str | None) -> dict[str, Any]:
+        with self._lock:
+            for c in self.courses.values():
+                if c["user_id"] == user_id and c["course_code"] == course_code:
+                    c.update({
+                        "course_name": course_name,
+                        "teaching_plan": teaching_plan,
+                    })
+                    return dict(c)
+            cid = str(uuid4())
+            course = {
+                "id": cid,
+                "user_id": user_id,
+                "course_code": course_code,
+                "course_name": course_name,
+                "teaching_plan": teaching_plan,
+                "created_at": datetime.now(timezone.utc)
+            }
+            self.courses[cid] = course
+            return dict(course)
+
+    def delete_course(self, user_id: str, course_code: str) -> bool:
+        with self._lock:
+            target_id = None
+            for cid, c in list(self.courses.items()):
+                if c["user_id"] == user_id and c["course_code"] == course_code:
+                    target_id = cid
+                    break
+            if not target_id:
+                return False
+            del self.courses[target_id]
+            for sid, s in list(self.study_schedule.items()):
+                if s["user_id"] == user_id and s["course_code"] == course_code:
+                    del self.study_schedule[sid]
+            return True
+
+    def list_schedule(self, user_id: str) -> list[dict[str, Any]]:
+        with self._lock:
+            return [dict(s) for s in self.study_schedule.values() if s["user_id"] == user_id]
+
+    def create_schedule(self, user_id: str, data: dict[str, Any]) -> dict[str, Any]:
+        with self._lock:
+            sid = str(uuid4())
+            start_time = data["start_time"]
+            if hasattr(start_time, "isoformat"):
+                start_time = start_time.isoformat()
+            end_time = data["end_time"]
+            if hasattr(end_time, "isoformat"):
+                end_time = end_time.isoformat()
+            slot = {
+                "id": sid,
+                "user_id": user_id,
+                "course_code": data["course_code"],
+                "day_of_week": data["day_of_week"],
+                "start_time": start_time,
+                "end_time": end_time,
+                "location": data.get("location"),
+                "created_at": datetime.now(timezone.utc)
+            }
+            self.study_schedule[sid] = slot
+            return dict(slot)
+
+    def delete_schedule(self, user_id: str, slot_id: str) -> bool:
+        with self._lock:
+            s = self.study_schedule.get(slot_id)
+            if not s or s["user_id"] != user_id:
+                return False
+            del self.study_schedule[slot_id]
+            return True
+
+    def list_alerts(self, user_id: str, status: str | None = None) -> list[dict[str, Any]]:
+        with self._lock:
+            results = []
+            for a in self.verification_alerts.values():
+                if a["user_id"] == user_id:
+                    if status is None or a["status"] == status:
+                        results.append(dict(a))
+            return results
+
+    def get_alert(self, user_id: str, alert_id: str) -> dict[str, Any] | None:
+        with self._lock:
+            a = self.verification_alerts.get(alert_id)
+            if not a or a["user_id"] != user_id:
+                return None
+            return dict(a)
+
+    def create_alert(self, user_id: str, alert_data: dict[str, Any]) -> dict[str, Any]:
+        with self._lock:
+            aid = str(uuid4())
+            alert = {
+                "id": aid,
+                "user_id": user_id,
+                "event_data": alert_data["event_data"],
+                "email_hash": alert_data["email_hash"],
+                "alert_type": alert_data["alert_type"],
+                "ai_reason": alert_data.get("ai_reason"),
+                "confidence": alert_data.get("confidence", "low"),
+                "status": "pending",
+                "created_at": datetime.now(timezone.utc),
+                "resolved_at": None
+            }
+            self.verification_alerts[aid] = alert
+            return dict(alert)
+
+    def update_alert_status(self, user_id: str, alert_id: str, status: str) -> dict[str, Any] | None:
+        with self._lock:
+            a = self.verification_alerts.get(alert_id)
+            if not a or a["user_id"] != user_id:
+                return None
+            a["status"] = status
+            a["resolved_at"] = datetime.now(timezone.utc)
+            return dict(a)
 
 
 class SupabaseStorage(Storage):
@@ -361,11 +534,23 @@ class SupabaseStorage(Storage):
     def update_event(
         self, user_id: str, event_id: str, update: EventUpdate
     ) -> dict[str, Any] | None:
+        changes = update.model_dump(exclude_none=True, mode="json")
+        for field in ("description", "notes", "location"):
+            if changes.get(field) == "":
+                changes[field] = None
+        if "start_time" in changes and "due_date" not in changes:
+            changes["due_date"] = changes["start_time"]
+        if "due_date" in changes and "start_time" not in changes:
+            changes["start_time"] = changes["due_date"]
+        if "description" in changes and "notes" not in changes:
+            changes["notes"] = changes["description"]
+        if "notes" in changes and "description" not in changes:
+            changes["description"] = changes["notes"]
         rows = self._request(
             "PATCH",
             "events",
             params={"id": f"eq.{event_id}", "user_id": f"eq.{user_id}"},
-            json=update.model_dump(exclude_none=True, mode="json"),
+            json=changes,
             headers={"Prefer": "return=representation"},
         ).json()
         return rows[0] if rows else None
@@ -430,6 +615,119 @@ class SupabaseStorage(Storage):
             },
             headers={"Prefer": "resolution=merge-duplicates"},
         )
+
+    def list_courses(self, user_id: str) -> list[dict[str, Any]]:
+        return self._request(
+            "GET", "courses", params={"user_id": f"eq.{user_id}", "order": "created_at.asc"}
+        ).json()
+
+    def create_or_update_course(self, user_id: str, course_code: str, course_name: str, teaching_plan: str | None) -> dict[str, Any]:
+        payload = {
+            "user_id": user_id,
+            "course_code": course_code,
+            "course_name": course_name,
+            "teaching_plan": teaching_plan
+        }
+        rows = self._request(
+            "POST",
+            "courses",
+            params={"on_conflict": "user_id,course_code"},
+            json=payload,
+            headers={"Prefer": "resolution=merge-duplicates,return=representation"},
+        ).json()
+        return rows[0]
+
+    def delete_course(self, user_id: str, course_code: str) -> bool:
+        rows = self._request(
+            "DELETE",
+            "courses",
+            params={"course_code": f"eq.{course_code}", "user_id": f"eq.{user_id}"},
+            headers={"Prefer": "return=representation"},
+        ).json()
+        return bool(rows)
+
+    def list_schedule(self, user_id: str) -> list[dict[str, Any]]:
+        return self._request(
+            "GET", "study_schedule", params={"user_id": f"eq.{user_id}"}
+        ).json()
+
+    def create_schedule(self, user_id: str, data: dict[str, Any]) -> dict[str, Any]:
+        start_time = data["start_time"]
+        if hasattr(start_time, "isoformat"):
+            start_time = start_time.isoformat()
+        end_time = data["end_time"]
+        if hasattr(end_time, "isoformat"):
+            end_time = end_time.isoformat()
+        payload = {
+            "user_id": user_id,
+            "course_code": data["course_code"],
+            "day_of_week": data["day_of_week"],
+            "start_time": start_time,
+            "end_time": end_time,
+            "location": data.get("location")
+        }
+        rows = self._request(
+            "POST",
+            "study_schedule",
+            json=payload,
+            headers={"Prefer": "return=representation"}
+        ).json()
+        return rows[0]
+
+    def delete_schedule(self, user_id: str, slot_id: str) -> bool:
+        rows = self._request(
+            "DELETE",
+            "study_schedule",
+            params={"id": f"eq.{slot_id}", "user_id": f"eq.{user_id}"},
+            headers={"Prefer": "return=representation"}
+        ).json()
+        return bool(rows)
+
+    def list_alerts(self, user_id: str, status: str | None = None) -> list[dict[str, Any]]:
+        params = {"user_id": f"eq.{user_id}"}
+        if status:
+            params["status"] = f"eq.{status}"
+        return self._request(
+            "GET", "verification_alerts", params=params
+        ).json()
+
+    def get_alert(self, user_id: str, alert_id: str) -> dict[str, Any] | None:
+        rows = self._request(
+            "GET", "verification_alerts", params={"id": f"eq.{alert_id}", "user_id": f"eq.{user_id}", "limit": "1"}
+        ).json()
+        return rows[0] if rows else None
+
+    def create_alert(self, user_id: str, alert_data: dict[str, Any]) -> dict[str, Any]:
+        payload = {
+            "user_id": user_id,
+            "event_data": alert_data["event_data"],
+            "email_hash": alert_data["email_hash"],
+            "alert_type": alert_data["alert_type"],
+            "ai_reason": alert_data.get("ai_reason"),
+            "confidence": alert_data.get("confidence", "low"),
+            "status": "pending"
+        }
+        rows = self._request(
+            "POST",
+            "verification_alerts",
+            json=payload,
+            headers={"Prefer": "return=representation"}
+        ).json()
+        return rows[0]
+
+    def update_alert_status(self, user_id: str, alert_id: str, status: str) -> dict[str, Any] | None:
+        payload = {
+            "status": status,
+            "resolved_at": datetime.now(timezone.utc).isoformat()
+        }
+        rows = self._request(
+            "PATCH",
+            "verification_alerts",
+            params={"id": f"eq.{alert_id}", "user_id": f"eq.{user_id}"},
+            json=payload,
+            headers={"Prefer": "return=representation"}
+        ).json()
+        return rows[0] if rows else None
 
 
 def create_storage(settings: Settings) -> Storage:

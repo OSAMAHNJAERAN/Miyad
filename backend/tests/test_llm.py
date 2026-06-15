@@ -110,3 +110,160 @@ def test_rejects_dates_without_timezone_after_single_retry() -> None:
     with pytest.raises(ValueError, match="invalid event JSON"):
         asyncio.run(extractor.extract(metadata(), "Quiz tomorrow."))
     assert attempts == 2
+
+
+def test_real_email_body_and_source_metadata_are_sent_for_each_request() -> None:
+    prompts: list[str] = []
+    replies = iter([
+        response(json.dumps({
+            "events": [{
+                "title": "Assignment 2",
+                "course_code": "DBS201",
+                "event_type": "deadline",
+                "due_date": "2026-06-20T23:59:00+08:00",
+                "location": "LMS",
+                "notes": None,
+                "confidence": "high",
+                "evidence": "Assignment 2 is due 20 June at 11:59 PM."
+            }]
+        })),
+        response(json.dumps({
+            "events": [{
+                "title": "Final exam",
+                "course_code": "DBS201",
+                "event_type": "exam",
+                "due_date": "2026-06-25T09:00:00+08:00",
+                "location": "Hall A",
+                "notes": None,
+                "confidence": "high",
+                "evidence": "The final exam is 25 June at 9 AM in Hall A."
+            }]
+        })),
+    ])
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        prompts.append(body["messages"][1]["content"])
+        return next(replies)
+
+    extractor = OpenRouterExtractor(settings(), httpx.MockTransport(handler))
+    first = asyncio.run(
+        extractor.extract(metadata(), "Assignment 2 is due 20 June at 11:59 PM.")
+    )
+    second = asyncio.run(
+        extractor.extract(metadata(), "The final exam is 25 June at 9 AM in Hall A.")
+    )
+
+    assert first[0].title != second[0].title
+    assert "Assignment 2 is due" in prompts[0]
+    assert "final exam is 25 June" in prompts[1]
+    assert first[0].source_email_subject == metadata().subject
+    assert first[0].source_email_sender == metadata().sender
+
+
+@pytest.mark.parametrize(
+    ("email_body", "event_payload", "expected_type", "expected_count", "all_day"),
+    [
+        (
+            "Assignment 3 is due 20 June at 11:59 PM.",
+            {
+                "title": "Assignment 3",
+                "event_type": "deadline",
+                "due_date": "2026-06-20T23:59:00+08:00",
+            },
+            "deadline",
+            1,
+            False,
+        ),
+        (
+            "الاختبار النهائي يوم 25 يونيو الساعة 9 صباحاً.",
+            {
+                "title": "الاختبار النهائي",
+                "event_type": "exam",
+                "due_date": "2026-06-25T09:00:00+08:00",
+            },
+            "exam",
+            1,
+            False,
+        ),
+        (
+            "Class cancelled: محاضرة قواعد البيانات on 22 June at 2 PM.",
+            {
+                "title": "Database lecture cancelled",
+                "event_type": "other",
+                "due_date": "2026-06-22T14:00:00+08:00",
+            },
+            "other",
+            1,
+            False,
+        ),
+        (
+            "Project meeting on 23 June at 4 PM, Teams link attached.",
+            {
+                "title": "Project meeting",
+                "event_type": "other",
+                "due_date": "2026-06-23T16:00:00+08:00",
+                "location": "Teams",
+            },
+            "other",
+            1,
+            False,
+        ),
+        (
+            "Assignment feedback is now available. No new deadline.",
+            None,
+            None,
+            0,
+            False,
+        ),
+        (
+            "Lab report is due on 18 June.",
+            {
+                "title": "Lab report",
+                "event_type": "deadline",
+                "due_date": "2026-06-18T00:00:00+08:00",
+                "all_day": True,
+            },
+            "deadline",
+            1,
+            True,
+        ),
+        (
+            "The quiz will happen sometime later this term.",
+            None,
+            None,
+            0,
+            False,
+        ),
+    ],
+)
+def test_academic_email_matrix_contract(
+    email_body: str,
+    event_payload: dict | None,
+    expected_type: str | None,
+    expected_count: int,
+    all_day: bool,
+) -> None:
+    captured_prompt = ""
+    payload = {"events": []}
+    if event_payload is not None:
+        payload["events"] = [{
+            "course_code": None,
+            "location": None,
+            "notes": None,
+            **event_payload,
+        }]
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal captured_prompt
+        captured_prompt = json.loads(request.content)["messages"][1]["content"]
+        return response(json.dumps(payload, ensure_ascii=False))
+
+    extractor = OpenRouterExtractor(settings(), httpx.MockTransport(handler))
+    events = asyncio.run(extractor.extract(metadata(), email_body))
+
+    assert email_body in captured_prompt
+    assert len(events) == expected_count
+    if events:
+        assert events[0].event_type == expected_type
+        assert events[0].all_day is all_day

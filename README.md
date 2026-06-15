@@ -30,6 +30,10 @@ The development default uses in-memory storage. For Supabase, apply
 `backend/supabase/schema.sql`, set `DATABASE_BACKEND=supabase`, and fill the
 Supabase variables in `.env`.
 
+Email extraction does not use a fake template when OpenRouter is missing.
+`/health` reports `ai_configured: false`, and extraction endpoints return a
+clear configuration error until `OPENROUTER_API_KEY` is set.
+
 ### Android
 
 ```powershell
@@ -49,7 +53,9 @@ is not named `medium_phone`.
 
 Open `chrome://extensions`, enable Developer mode, select **Load unpacked**,
 and choose the `extension` directory. Open the popup and connect the same
-Miyad account used by the mobile app.
+Miyad account used by the mobile app. The popup detects the current Outlook
+message, previews extracted details and confidence, and saves only after the
+student confirms the review.
 
 ## Required production environment
 

@@ -52,7 +52,10 @@ def update_event(
     user: Annotated[dict, Depends(get_current_user)],
     storage: Annotated[Storage, Depends(get_storage)],
 ) -> EventResponse:
-    row = storage.update_event(user["id"], event_id, payload)
+    try:
+        row = storage.update_event(user["id"], event_id, payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     if not row:
         raise HTTPException(status_code=404, detail="Event not found")
     return EventResponse.model_validate(row)

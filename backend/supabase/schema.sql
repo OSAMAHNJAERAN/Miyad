@@ -29,18 +29,26 @@ CREATE TABLE IF NOT EXISTS events (
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     title TEXT NOT NULL,
     course_code TEXT,
+    course_name TEXT,
+    assignment_name TEXT,
     event_type TEXT NOT NULL
         CHECK (event_type IN ('exam', 'deadline', 'quiz', 'lecture', 'other')),
     due_date TIMESTAMPTZ NOT NULL,
     location TEXT,
+    lecturer TEXT,
     notes TEXT,
+    confidence TEXT NOT NULL DEFAULT 'medium'
+        CHECK (confidence IN ('high', 'medium', 'low')),
+    source_email_subject TEXT,
+    source_email_sender TEXT,
+    evidence TEXT,
     description TEXT,
     start_time TIMESTAMPTZ,
     end_time TIMESTAMPTZ,
     all_day BOOLEAN NOT NULL DEFAULT FALSE,
     repeat TEXT NOT NULL DEFAULT 'none'
         CHECK (repeat IN ('none', 'daily', 'weekly', 'monthly', 'custom')),
-    event_color TEXT NOT NULL DEFAULT '#B8F23A'
+    event_color TEXT NOT NULL DEFAULT '#BCDA4B'
         CHECK (event_color ~ '^#[0-9A-Fa-f]{6}$'),
     source_hash TEXT,
     reminder TEXT DEFAULT 'one_day'
@@ -59,7 +67,14 @@ ALTER TABLE events ADD COLUMN IF NOT EXISTS start_time TIMESTAMPTZ;
 ALTER TABLE events ADD COLUMN IF NOT EXISTS end_time TIMESTAMPTZ;
 ALTER TABLE events ADD COLUMN IF NOT EXISTS all_day BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE events ADD COLUMN IF NOT EXISTS repeat TEXT NOT NULL DEFAULT 'none';
-ALTER TABLE events ADD COLUMN IF NOT EXISTS event_color TEXT NOT NULL DEFAULT '#B8F23A';
+ALTER TABLE events ADD COLUMN IF NOT EXISTS course_name TEXT;
+ALTER TABLE events ADD COLUMN IF NOT EXISTS assignment_name TEXT;
+ALTER TABLE events ADD COLUMN IF NOT EXISTS lecturer TEXT;
+ALTER TABLE events ADD COLUMN IF NOT EXISTS confidence TEXT NOT NULL DEFAULT 'medium';
+ALTER TABLE events ADD COLUMN IF NOT EXISTS source_email_subject TEXT;
+ALTER TABLE events ADD COLUMN IF NOT EXISTS source_email_sender TEXT;
+ALTER TABLE events ADD COLUMN IF NOT EXISTS evidence TEXT;
+ALTER TABLE events ADD COLUMN IF NOT EXISTS event_color TEXT NOT NULL DEFAULT '#BCDA4B';
 
 UPDATE events
 SET
@@ -78,6 +93,13 @@ ALTER TABLE events
 ALTER TABLE events
     ADD CONSTRAINT events_event_color_check
     CHECK (event_color ~ '^#[0-9A-Fa-f]{6}$');
+ALTER TABLE events
+    ALTER COLUMN event_color SET DEFAULT '#BCDA4B';
+ALTER TABLE events
+    DROP CONSTRAINT IF EXISTS events_confidence_check;
+ALTER TABLE events
+    ADD CONSTRAINT events_confidence_check
+    CHECK (confidence IN ('high', 'medium', 'low'));
 
 CREATE OR REPLACE FUNCTION save_extraction(
     p_user_id UUID,
@@ -106,10 +128,17 @@ BEGIN
         user_id,
         title,
         course_code,
+        course_name,
+        assignment_name,
         event_type,
         due_date,
         location,
+        lecturer,
         notes,
+        confidence,
+        source_email_subject,
+        source_email_sender,
+        evidence,
         description,
         start_time,
         end_time,
@@ -123,16 +152,28 @@ BEGIN
         p_user_id,
         item->>'title',
         NULLIF(item->>'course_code', ''),
+        NULLIF(item->>'course_name', ''),
+        NULLIF(item->>'assignment_name', ''),
         item->>'event_type',
         (item->>'due_date')::TIMESTAMPTZ,
         NULLIF(item->>'location', ''),
+        NULLIF(item->>'lecturer', ''),
         NULLIF(item->>'notes', ''),
+        COALESCE(NULLIF(item->>'confidence', ''), 'medium'),
+        NULLIF(item->>'source_email_subject', ''),
+        NULLIF(item->>'source_email_sender', ''),
+        NULLIF(item->>'evidence', ''),
         NULLIF(item->>'notes', ''),
         (item->>'due_date')::TIMESTAMPTZ,
-        (item->>'due_date')::TIMESTAMPTZ + INTERVAL '1 hour',
-        FALSE,
+        (item->>'due_date')::TIMESTAMPTZ
+            + CASE
+                WHEN COALESCE((item->>'all_day')::BOOLEAN, FALSE)
+                THEN INTERVAL '1 day'
+                ELSE INTERVAL '1 hour'
+              END,
+        COALESCE((item->>'all_day')::BOOLEAN, FALSE),
         'none',
-        '#B8F23A',
+        '#BCDA4B',
         p_hash,
         'one_day'
     FROM jsonb_array_elements(p_events) AS item

@@ -38,9 +38,41 @@ interface MiyadApi {
     @POST("api/extract-manual")
     suspend fun extractManual(@Body request: ManualExtractRequest): ExtractionResponse
 
+    @POST("api/confirm-manual-extraction")
+    suspend fun confirmManualExtraction(
+        @Body request: ConfirmManualExtractionRequest
+    ): ExtractionResponse
+
     @GET("api/settings")
     suspend fun settings(): UserSettingsDto
 
     @PATCH("api/settings")
     suspend fun updateSettings(@Body request: UserSettingsUpdate): UserSettingsDto
+
+    @GET("api/courses")
+    suspend fun getCourses(): List<CourseDto>
+
+    @POST("api/courses")
+    suspend fun createCourse(@Body request: CourseCreateDto): CourseDto
+
+    @DELETE("api/courses/{course_code}")
+    suspend fun deleteCourse(@Path("course_code") courseCode: String): DeleteResponse
+
+    @GET("api/schedule")
+    suspend fun getSchedule(): List<ScheduleDto>
+
+    @POST("api/schedule")
+    suspend fun createSchedule(@Body request: ScheduleCreateDto): ScheduleDto
+
+    @DELETE("api/schedule/{slot_id}")
+    suspend fun deleteSchedule(@Path("slot_id") slotId: String): DeleteResponse
+
+    @GET("api/alerts")
+    suspend fun getAlerts(@Query("status_filter") statusFilter: String? = "pending"): List<VerificationAlertDto>
+
+    @POST("api/alerts/{alert_id}/resolve")
+    suspend fun resolveAlert(
+        @Path("alert_id") alertId: String,
+        @Body request: AlertResolutionDto
+    ): VerificationAlertDto
 }

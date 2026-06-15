@@ -1,70 +1,44 @@
 {
-  "backend_tests": {
+  "date": "2026-06-15",
+  "verdict": "READY_FOR_STAGING_INTEGRATION",
+  "backend": {
+    "status": "PASS_BEFORE_FINAL_NARROW_PATCH",
+    "tests": 25,
+    "failures": 0,
+    "final_rerun": "BLOCKED_EXECUTION_APPROVAL_USAGE_LIMIT"
+  },
+  "extension": {
     "status": "PASS",
-    "total_executed": 13,
-    "passed": 13,
-    "failed": 0,
-    "test_suite": "pytest",
-    "details": "Unit tests for authentication, tokens, calendar CRUD, timezone filters, settings, JWT token expiration claim, and endpoint rate limiting pass successfully."
+    "tests": 23,
+    "failures": 0,
+    "live_outlook": "BLOCKED_NO_AUTHORIZED_SESSION"
   },
-  "supabase_tests": {
-    "status": "SIMULATED",
-    "details": "RLS policies added for tables (users, events, email_hashes, notification_tokens, user_settings). Isolation verification simulated in backend/supabase/rls_test.sql transaction test script.",
-    "live_database_testing": "BLOCKED"
+  "android": {
+    "status": "PASS_BEFORE_FULL_EVENT_EDIT_CHANGE",
+    "jvm_tests": 12,
+    "failures": 0,
+    "assemble_debug": "PASS_BEFORE_FULL_EVENT_EDIT_CHANGE",
+    "lint_debug": "PASS_NO_ERRORS_BEFORE_FULL_EVENT_EDIT_CHANGE",
+    "current_rebuild": "BLOCKED_EXECUTION_APPROVAL_USAGE_LIMIT",
+    "emulator_login": "PASS",
+    "dark_mode": "PASS",
+    "system_theme": "PASS",
+    "small_screen": "PASS",
+    "font_scale_130_percent": "PASS_AFTER_FIX",
+    "add_sheet_scroll_and_back_dismiss": "PASS"
   },
-  "extension_tests": {
-    "status": "PASS",
-    "total_executed": 22,
-    "passed": 22,
-    "failed": 0,
-    "test_suite": "node --test",
-    "details": "Chrome Extension unit tests verifying OWA DOM scraping fallbacks, SHA-256 fingerprint hashing, translation dictionary keys, retry queue limits, and URL validation pass successfully."
+  "ai": {
+    "preview_confirm_contract": "PASS",
+    "editable_preview_contract": "PASS",
+    "different_email_payloads": "PASS_MOCK_TRANSPORT",
+    "email_matrix": "PASS_MOCK_TRANSPORT",
+    "date_without_time": "PASS_AS_ALL_DAY",
+    "missing_key_error": "PASS",
+    "live_openrouter": "BLOCKED_MISSING_KEY"
   },
-  "outlook_real_tests": {
-    "status": "BLOCKED",
-    "reason": "Missing authorized student test credentials and MFA validation permissions.",
-    "details": "Chrome Extension content scripts and local cache logic are unit-tested and fully prepared for OWA integration."
+  "supabase": {
+    "schema_and_rpc": "PASS_STATIC_AND_UNIT",
+    "live_database": "BLOCKED_MISSING_CREDENTIALS"
   },
-  "android_tests": {
-    "status": "PASS",
-    "details": "Android Gradle JVM unit tests pass successfully when executed from an ASCII-only classpath (C:\\Miyad_frontend). APK compiles and packages cleanly.",
-    "total_executed": 7,
-    "passed": 7,
-    "failed": 0
-  },
-  "e2e_tests": {
-    "status": "PASS",
-    "method": "API_SIMULATION",
-    "details": "Validated local FastAPI endpoints with mock payloads simulating scraping metadata -> Hash check -> Event create -> Android sync retrieval."
-  },
-  "security_tests": {
-    "status": "PASS",
-    "jwt_expiration_fixed": true,
-    "rate_limiting_fixed": true,
-    "supabase_rls_configured": true,
-    "android_cleartext_disabled_in_release": true,
-    "details": "JWT token session expiration and API rate limits are active. Supabase schemas updated with production RLS policies. Android release builds restrict cleartext traffic via Network Security Config."
-  },
-  "production_checklist": {
-    "supabase_schema_deployed": false,
-    "supabase_rls_audited": false,
-    "production_environment_keys_configured": false,
-    "extension_production_url_configured": false,
-    "android_release_signing_configured": false,
-    "android_production_url_configured": false
-  },
-  "blocked_items": [
-    {
-      "item": "Real Supabase Live Database Verification",
-      "reason": "No live Supabase project credentials (SUPABASE_URL, SUPABASE_SERVICE_KEY) provided in workspace environment."
-    },
-    {
-      "item": "Real OpenRouter AI Extraction",
-      "reason": "Missing OPENROUTER_API_KEY environment variable in staging/production scope."
-    },
-    {
-      "item": "Outlook Web App Live DOM Scraping Verification",
-      "reason": "No student Outlook email account provided; Chrome DevTools remote port debugging blocked by environment sandbox."
-    }
-  ]
+  "evidence_directory": "qa-evidence"
 }

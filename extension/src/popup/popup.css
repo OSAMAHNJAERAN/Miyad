@@ -12,17 +12,17 @@
 
 :root {
   color-scheme: light;
-  --bg: #f5f7f2;
-  --bg-glow: rgba(184, 242, 58, 0.2);
+  --bg: #f8fdf4;
+  --bg-glow: rgba(188, 218, 75, 0.2);
   --surface: rgba(255, 255, 255, 0.72);
   --surface-strong: rgba(255, 255, 255, 0.92);
   --surface-solid: #ffffff;
-  --text: #101610;
+  --text: #030301;
   --muted: #626d62;
   --border: rgba(255, 255, 255, 0.9);
   --control: rgba(238, 243, 234, 0.9);
-  --lime: #b8f23a;
-  --lime-soft: rgba(184, 242, 58, 0.18);
+  --lime: #bcda4b;
+  --lime-soft: rgba(188, 218, 75, 0.18);
   --danger: #c83939;
   --danger-soft: rgba(200, 57, 57, 0.1);
   --shadow: 0 18px 45px rgba(24, 43, 24, 0.12);
@@ -31,7 +31,7 @@
 
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --bg: #081008;
+  --bg: #030301;
   --bg-glow: rgba(184, 242, 58, 0.1);
   --surface: rgba(19, 32, 20, 0.78);
   --surface-strong: rgba(23, 39, 25, 0.94);
@@ -48,7 +48,7 @@
 @media (prefers-color-scheme: dark) {
   :root[data-theme="system"] {
     color-scheme: dark;
-    --bg: #081008;
+    --bg: #030301;
     --bg-glow: rgba(184, 242, 58, 0.1);
     --surface: rgba(19, 32, 20, 0.78);
     --surface-strong: rgba(23, 39, 25, 0.94);
@@ -114,7 +114,7 @@ select {
 }
 #themeSelect { width: 76px; }
 #languageSelect { width: 46px; }
-.panel, .status-card, .advanced {
+.panel, .status-card, .detection-card, .preview-card, .advanced {
   border-radius: 24px;
   padding: 16px;
 }
@@ -181,7 +181,7 @@ input[aria-invalid="true"] { border-color: var(--danger); }
   margin-top: 15px;
   border: 0;
   background: var(--lime);
-  color: #101610;
+  color: #030301;
 }
 .secondary {
   width: 100%;
@@ -201,7 +201,7 @@ input[aria-invalid="true"] { border-color: var(--danger); }
   height: 19px;
   margin: auto;
   border: 2px solid rgba(16, 22, 16, 0.25);
-  border-top-color: #101610;
+  border-top-color: #030301;
   border-radius: 50%;
   animation: spin 0.75s linear infinite;
 }
@@ -235,6 +235,52 @@ input[aria-invalid="true"] { border-color: var(--danger); }
 .status-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--lime); box-shadow: 0 0 0 5px var(--lime-soft); }
 .status-card p { margin: 8px 0; direction: ltr; text-align: start; font-size: 12px; }
 .status-card small { color: var(--muted); line-height: 1.5; }
+.detection-card, .preview-card { margin-top: 12px; }
+.detection-heading, .preview-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+.detection-heading p { margin: 5px 0 2px; font-size: 12px; line-height: 1.4; }
+.detection-heading small { color: var(--muted); font-size: 10px; }
+.detection-badge, .confidence {
+  flex: none;
+  padding: 5px 7px;
+  border-radius: 999px;
+  background: var(--control);
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 700;
+}
+.detection-badge.active, .confidence.high {
+  background: var(--lime-soft);
+  color: var(--text);
+}
+.confidence.medium { background: rgba(217, 160, 32, 0.16); color: #896000; }
+.confidence.low { background: var(--danger-soft); color: var(--danger); }
+.preview-heading h2 { margin: 0; font-size: 15px; }
+.preview-list { display: grid; gap: 8px; margin-top: 12px; }
+.preview-event { padding: 11px; border-radius: 15px; background: var(--control); }
+.preview-hint { margin: 0 0 8px; color: var(--muted); font-size: 10px; }
+.preview-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.preview-field { color: var(--muted); font-size: 10px; }
+.preview-field:first-child, .preview-field:nth-child(3), .preview-field:last-child {
+  grid-column: 1 / -1;
+}
+.preview-field input, .preview-field select {
+  width: 100%;
+  min-height: 38px;
+  margin-top: 4px;
+  border-radius: 11px;
+  font-size: 11px;
+}
+.preview-event dl { display: grid; grid-template-columns: 78px 1fr; gap: 5px; margin: 9px 0 0; font-size: 10px; }
+.preview-event dt { color: var(--muted); }
+.preview-event dd { margin: 0; overflow-wrap: anywhere; }
+.review-warning { color: #896000; font-size: 10px; line-height: 1.4; }
+.preview-actions { display: grid; grid-template-columns: 1fr 1.35fr; gap: 8px; }
+.preview-actions .primary, .preview-actions .secondary { margin-top: 8px; }
 .section-title { display: flex; justify-content: space-between; align-items: center; margin: 17px 3px 9px; }
 .section-title h2 { margin: 0; font-size: 16px; }
 .queue-badge { color: #9b7100; font-size: 10px; }

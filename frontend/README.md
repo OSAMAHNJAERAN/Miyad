@@ -15,6 +15,8 @@ Native Kotlin application built with Jetpack Compose and Material 3.
   adjacent-month navigation, and type filters
 - Event details with per-event reminder overrides and confirmed deletion
 - Manual AI extraction preview and save flow
+- Editable AI review cards with confidence, source evidence, date/time,
+  course, location, and notes before saving
 - Notification/reminder preferences backed by local Android alarms
 - Same-day, one-day, and one-week reminders with reboot/package-update restore
 - Backend-derived extension connection status and privacy note

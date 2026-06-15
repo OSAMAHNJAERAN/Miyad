@@ -88,6 +88,40 @@
           <small data-i18n="privacyNote">Miyad reads only the email you open.</small>
         </div>
 
+        <div class="glass detection-card">
+          <div class="detection-heading">
+            <div>
+              <strong data-i18n="detectedEmailTitle">Current Outlook email</strong>
+              <p id="detectedSubject" data-i18n="noEmailDetected">No open email detected</p>
+              <small id="detectedSender"></small>
+            </div>
+            <span id="detectionBadge" class="detection-badge" data-i18n="notDetected">Not detected</span>
+          </div>
+          <button id="extractButton" class="primary" type="button">
+            <span class="button-label" data-i18n="extractEvent">Extract event</span>
+            <span class="button-loader" aria-hidden="true"></span>
+          </button>
+          <p id="extractError" class="error" role="alert" aria-live="assertive"></p>
+        </div>
+
+        <section id="previewCard" class="glass preview-card hidden" aria-live="polite">
+          <div class="preview-heading">
+            <h2 data-i18n="reviewExtraction">Review extracted event</h2>
+            <span id="previewConfidence" class="confidence"></span>
+          </div>
+          <div id="previewList" class="preview-list"></div>
+          <p id="reviewWarning" class="review-warning hidden" data-i18n="reviewLowConfidence">
+            Please review this event before saving.
+          </p>
+          <div class="preview-actions">
+            <button id="cancelPreview" class="secondary" type="button" data-i18n="cancel">Cancel</button>
+            <button id="confirmPreview" class="primary" type="button">
+              <span class="button-label" data-i18n="sendToMiyad">Send to Miyad</span>
+              <span class="button-loader" aria-hidden="true"></span>
+            </button>
+          </div>
+        </section>
+
         <div class="section-title">
           <h2 data-i18n="recentEvents">Recent events</h2>
           <span id="queueBadge" class="queue-badge"></span>

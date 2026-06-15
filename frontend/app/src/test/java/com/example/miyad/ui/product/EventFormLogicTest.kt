@@ -20,6 +20,7 @@ class EventFormLogicTest {
         assertEquals("2026-06-15T09:30+08:00", request.start_time)
         assertEquals("2026-06-15T11:00+08:00", request.end_time)
         assertEquals("weekly", request.repeat)
+        assertEquals("exam", request.event_type)
         assertNull(request.description)
         assertNull(request.location)
     }
@@ -53,6 +54,7 @@ class EventFormLogicTest {
         repeat = "weekly",
         location = "",
         reminder = "one_day",
-        color = "#B8F23A",
+        color = "#BCDA4B",
+        eventType = "exam",
     )
 }

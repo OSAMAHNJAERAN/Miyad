@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
@@ -57,6 +58,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.LightMode
@@ -152,9 +154,9 @@ import java.time.format.FormatStyle
 import java.time.format.TextStyle
 import java.util.Locale
 
-private enum class AppScreen {
+enum class AppScreen {
     Splash, Onboarding, Language, Auth, Home, Calendar, Extract, Statistics,
-    Settings, Details
+    Settings, Details, AcademicProfile, PendingAlerts
 }
 
 @Composable
@@ -277,10 +279,23 @@ fun ProductApp(viewModel: AppViewModel = viewModel()) {
                         loading = state.loading,
                         onBack = { screen = detailsReturnScreen },
                         onReminder = viewModel::updateSelectedReminder,
+                        onEdit = { request, onUpdated ->
+                            viewModel.updateSelectedEvent(request, onUpdated)
+                        },
                         onDelete = {
                             viewModel.deleteSelectedEvent()
                             screen = detailsReturnScreen
                         }
+                    )
+                    AppScreen.AcademicProfile -> AcademicProfileScreen(
+                        state = state,
+                        isArabic = isArabic,
+                        onBack = { screen = AppScreen.Settings }
+                    )
+                    AppScreen.PendingAlerts -> PendingAlertsScreen(
+                        state = state,
+                        isArabic = isArabic,
+                        onBack = { screen = AppScreen.Home }
                     )
                 }
             }
@@ -319,7 +334,7 @@ fun SplashScreen() {
                     fontFamily = ThmanyahSerifDisplay,
                     fontWeight = FontWeight.Black,
                     fontSize = 42.sp,
-                    color = MiyadDarkBackground
+                    color = MaterialTheme.colorScheme.onBackground
                 )
                 Text(
                     "MIYAD",
@@ -363,7 +378,11 @@ fun OnboardingScreen(isArabic: Boolean, onContinue: () -> Unit) {
             ) {
                 Box(
                     Modifier.size(150.dp).clip(RoundedCornerShape(45.dp))
-                        .background(Brush.linearGradient(listOf(MiyadLime, Color(0xFFEAFBC5)))),
+                        .background(
+                            Brush.linearGradient(
+                                listOf(MiyadLime, MaterialTheme.colorScheme.primaryContainer)
+                            )
+                        ),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(item.third, null, Modifier.size(72.dp), tint = MiyadDarkBackground)
@@ -386,7 +405,13 @@ fun OnboardingScreen(isArabic: Boolean, onContinue: () -> Unit) {
                     Modifier.padding(4.dp).height(8.dp)
                         .width(if (index == pagerState.currentPage) 28.dp else 8.dp)
                         .clip(CircleShape)
-                        .background(if (index == pagerState.currentPage) MiyadDarkBackground else Color(0xFFD9DDD5))
+                        .background(
+                            if (index == pagerState.currentPage) {
+                                MaterialTheme.colorScheme.onBackground
+                            } else {
+                                MaterialTheme.colorScheme.outlineVariant
+                            }
+                        )
                 )
             }
         }
@@ -419,7 +444,12 @@ fun LanguageSelectionScreen(onSelect: (String) -> Unit) {
         Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().padding(24.dp),
         verticalArrangement = Arrangement.Center
     ) {
-        Icon(Icons.Default.Language, null, Modifier.size(54.dp), tint = MiyadDarkBackground)
+        Icon(
+            Icons.Default.Language,
+            null,
+            Modifier.size(54.dp),
+            tint = MaterialTheme.colorScheme.onBackground
+        )
         Spacer(Modifier.height(22.dp))
         Text("اختر لغتك", fontFamily = ThmanyahSerifDisplay, fontWeight = FontWeight.Black, fontSize = 34.sp)
         Text(
@@ -440,10 +470,21 @@ private fun LanguageCard(title: String, subtitle: String, mark: String, highligh
     Card(
         Modifier.fillMaxWidth().clickable(onClick = onClick),
         shape = RoundedCornerShape(22.dp),
-        colors = CardDefaults.cardColors(containerColor = if (highlighted) Color(0xFFEAFBC5) else Color.White)
+        colors = CardDefaults.cardColors(
+            containerColor = if (highlighted) {
+                MaterialTheme.colorScheme.primaryContainer
+            } else {
+                MaterialTheme.colorScheme.surface
+            }
+        )
     ) {
         Row(Modifier.padding(18.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(52.dp).clip(RoundedCornerShape(16.dp)).background(if (highlighted) MiyadLime else Color(0xFFF0F2ED)), contentAlignment = Alignment.Center) {
+            Box(
+                Modifier.size(52.dp).clip(RoundedCornerShape(16.dp)).background(
+                    if (highlighted) MiyadLime else MaterialTheme.colorScheme.surfaceVariant
+                ),
+                contentAlignment = Alignment.Center
+            ) {
                 Text(mark, fontWeight = FontWeight.Black)
             }
             Spacer(Modifier.width(14.dp))
@@ -560,7 +601,11 @@ private fun AuthField(value: String, onValue: (String) -> Unit, label: String, p
                 IconButton(onClick = { passwordVisible = !passwordVisible }) {
                     Icon(
                         if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                        contentDescription = null
+                        contentDescription = if (passwordVisible) {
+                            "Hide password"
+                        } else {
+                            "Show password"
+                        }
                     )
                 }
             }
@@ -604,9 +649,20 @@ private fun MainShell(
     var showAddEvent by remember { mutableStateOf(false) }
     val keyboardVisible = WindowInsets.isImeVisible
     val addEventSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val sheetScope = rememberCoroutineScope()
+    fun dismissAddEvent() {
+        sheetScope.launch {
+            runCatching { addEventSheetState.hide() }
+            showAddEvent = false
+        }
+    }
+    BackHandler(enabled = showAddEvent) { dismissAddEvent() }
+    LaunchedEffect(selected) {
+        if (showAddEvent) dismissAddEvent()
+    }
     if (showAddEvent) {
         ModalBottomSheet(
-            onDismissRequest = { showAddEvent = false },
+            onDismissRequest = { dismissAddEvent() },
             sheetState = addEventSheetState,
             containerColor = MaterialTheme.colorScheme.surface,
             dragHandle = null,
@@ -615,10 +671,10 @@ private fun MainShell(
             AddEventSheetV2(
                 isArabic = isArabic,
                 loading = state.loading,
-                onDismiss = { showAddEvent = false },
+                onDismiss = { dismissAddEvent() },
                 onSave = { request ->
                     viewModel.createEvent(request) {
-                        showAddEvent = false
+                        dismissAddEvent()
                         onNavigate(AppScreen.Calendar)
                     }
                 }
@@ -645,13 +701,14 @@ private fun MainShell(
                     isArabic,
                     onRefresh,
                     onEvent,
+                    onNavigate = onNavigate,
                     onExtract = { onNavigate(AppScreen.Extract) },
                     onAdd = { showAddEvent = true }
                 )
                 AppScreen.Calendar -> CalendarScreen(state, isArabic, onRefresh, onEvent)
                 AppScreen.Extract -> SmartExtractionScreen(state, isArabic)
                 AppScreen.Statistics -> StatisticsScreen(state, isArabic)
-                AppScreen.Settings -> ProfileSettingsScreen(state, isArabic)
+                AppScreen.Settings -> ProfileSettingsScreen(state, isArabic, onNavigate)
                 else -> Unit
             }
         }
@@ -765,6 +822,7 @@ fun HomeDashboardScreen(
     isArabic: Boolean,
     onRefresh: () -> Unit,
     onEvent: (EventDto) -> Unit,
+    onNavigate: (AppScreen) -> Unit,
     onExtract: () -> Unit = {},
     onAdd: () -> Unit = {},
 ) {
@@ -783,6 +841,47 @@ fun HomeDashboardScreen(
                     )
                 }
                 IconButton(onClick = onRefresh) { Icon(Icons.Default.Refresh, if (isArabic) "تحديث" else "Refresh") }
+            }
+        }
+        if (state.alerts.isNotEmpty()) {
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth().clickable { onNavigate(AppScreen.PendingAlerts) },
+                    shape = RoundedCornerShape(22.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier.padding(18.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier.size(42.dp).clip(CircleShape).background(MaterialTheme.colorScheme.error.copy(alpha = 0.15f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                Icons.Default.AutoAwesome,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.error
+                            )
+                        }
+                        Spacer(Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                if (isArabic) "لديك مواعيد غير مؤكدة (${state.alerts.size})" else "Unconfirmed events (${state.alerts.size})",
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                            Text(
+                                if (isArabic) "اضغط هنا لمراجعتها وتأكيدها بالـ AI." else "Tap to review and confirm them with AI.",
+                                color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.8f),
+                                fontSize = 12.sp
+                            )
+                        }
+                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = MaterialTheme.colorScheme.error)
+                    }
+                }
             }
         }
         item {
@@ -838,7 +937,7 @@ fun HomeDashboardScreen(
                 onClick = onExtract,
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(20.dp),
-                color = Color(0xFFEAFBC5)
+                color = MaterialTheme.colorScheme.primaryContainer
             ) {
                 Row(
                     Modifier.fillMaxWidth().padding(17.dp),
@@ -897,7 +996,7 @@ fun HomeDashboardScreen(
                         modifier = Modifier.fillMaxWidth().padding(top = 12.dp).height(7.dp)
                             .clip(CircleShape),
                         color = MiyadLime,
-                        trackColor = Color(0xFFE8EBE5)
+                        trackColor = MaterialTheme.colorScheme.surfaceVariant
                     )
                 }
             }
@@ -945,7 +1044,7 @@ private fun QuickActionCard(
 ) {
     Surface(
         onClick = onClick,
-        modifier = modifier.height(108.dp),
+        modifier = modifier.heightIn(min = 108.dp),
         shape = RoundedCornerShape(22.dp),
         color = LocalMiyadGlassColors.current.strongSurface,
         border = androidx.compose.foundation.BorderStroke(
@@ -982,7 +1081,9 @@ private fun SummaryCard(label: String, value: String, modifier: Modifier) {
     Card(
         modifier,
         shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFEAFBC5))
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer
+        )
     ) {
         Column(Modifier.fillMaxWidth().padding(17.dp)) {
             Text(value, fontWeight = FontWeight.Black, fontSize = 25.sp)
@@ -1047,7 +1148,7 @@ private fun AddEventSheet(
     var repeat by remember { mutableStateOf("none") }
     var location by remember { mutableStateOf("") }
     var reminder by remember { mutableStateOf("one_day") }
-    var color by remember { mutableStateOf("#B8F23A") }
+    var color by remember { mutableStateOf("#BCDA4B") }
     var error by remember { mutableStateOf<String?>(null) }
     var visible by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
@@ -1174,7 +1275,7 @@ private fun AddEventSheet(
                 }
                 Text(if (isArabic) "لون الموعد" else "Event color", fontWeight = FontWeight.Bold)
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    listOf("#B8F23A", "#2388C9", "#8E6AC8", "#FFA000", "#D94949")
+                    listOf("#BCDA4B", "#2388C9", "#8E6AC8", "#FFA000", "#D94949")
                         .forEach { value ->
                             val selected = color == value
                             Box(
@@ -1346,7 +1447,9 @@ fun CalendarScreen(state: AppUiState, isArabic: Boolean, onRefresh: () -> Unit, 
         item {
             Row(Modifier.fillMaxWidth().padding(top = 16.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Text(if (isArabic) "التقويم" else "Calendar", fontFamily = ThmanyahSerifDisplay, fontWeight = FontWeight.Black, fontSize = 29.sp)
-                IconButton(onClick = onRefresh) { Icon(Icons.Default.Refresh, null) }
+                IconButton(onClick = onRefresh) {
+                    Icon(Icons.Default.Refresh, if (isArabic) "تحديث" else "Refresh")
+                }
             }
         }
         item {
@@ -1434,7 +1537,7 @@ fun CalendarScreen(state: AppUiState, isArabic: Boolean, onRefresh: () -> Unit, 
                                             when {
                                                 isSelected -> MiyadDarkBackground
                                                 hasEvent -> MiyadLime
-                                                isToday -> Color(0xFFEAFBC5)
+                                                isToday -> MaterialTheme.colorScheme.primaryContainer
                                                 else -> Color.Transparent
                                             }
                                         ),
@@ -1530,15 +1633,44 @@ fun CalendarScreen(state: AppUiState, isArabic: Boolean, onRefresh: () -> Unit, 
 }
 
 @Composable
+@OptIn(ExperimentalMaterial3Api::class)
 fun EventDetailsScreen(
     event: EventDto?,
     isArabic: Boolean,
     loading: Boolean,
     onBack: () -> Unit,
     onReminder: (String) -> Unit,
+    onEdit: (EventCreateRequest, () -> Unit) -> Unit,
     onDelete: () -> Unit
 ) {
     var confirmDelete by remember { mutableStateOf(false) }
+    var showEdit by remember { mutableStateOf(false) }
+    val editSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val editScope = rememberCoroutineScope()
+    fun dismissEdit() {
+        editScope.launch {
+            runCatching { editSheetState.hide() }
+            showEdit = false
+        }
+    }
+    BackHandler(enabled = showEdit) { dismissEdit() }
+    if (showEdit && event != null) {
+        ModalBottomSheet(
+            onDismissRequest = { dismissEdit() },
+            sheetState = editSheetState,
+            containerColor = MaterialTheme.colorScheme.surface,
+            dragHandle = null,
+            shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)
+        ) {
+            AddEventSheetV2(
+                isArabic = isArabic,
+                loading = loading,
+                initialEvent = event,
+                onDismiss = { dismissEdit() },
+                onSave = { request -> onEdit(request) { dismissEdit() } }
+            )
+        }
+    }
     if (confirmDelete) {
         AlertDialog(
             onDismissRequest = { confirmDelete = false },
@@ -1552,7 +1684,12 @@ fun EventDetailsScreen(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).statusBarsPadding()
             .navigationBarsPadding().padding(18.dp)
     ) {
-        IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, null) }
+        IconButton(onClick = onBack) {
+            Icon(
+                Icons.AutoMirrored.Filled.ArrowBack,
+                if (isArabic) "رجوع" else "Back"
+            )
+        }
         if (event == null) {
             EmptyState(isArabic)
             return@Column
@@ -1564,7 +1701,7 @@ fun EventDetailsScreen(
             fontWeight = FontWeight.Bold
         )
         Text(event.title, fontFamily = ThmanyahSerifDisplay, fontWeight = FontWeight.Black, fontSize = 32.sp, lineHeight = 39.sp)
-        event.course_code?.let {
+        (event.course_name ?: event.course_code)?.let {
             Text(
                 it,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -1591,8 +1728,28 @@ fun EventDetailsScreen(
             if (isArabic) "التكرار" else "Repeat",
             repeatLabel(event.repeat, isArabic)
         )
-        DetailRow(Icons.Default.Email, if (isArabic) "المصدر" else "Source", if (event.source_hash != null) "Outlook / Miyad AI" else if (isArabic) "إدخال يدوي" else "Manual")
-        (event.description ?: event.notes)?.let {
+        DetailRow(
+            Icons.Default.Email,
+            if (isArabic) "المصدر" else "Source",
+            event.source_email_subject
+                ?: if (event.source_hash != null) "Outlook / Miyad AI"
+                else if (isArabic) "إدخال يدوي" else "Manual"
+        )
+        event.source_email_sender?.let {
+            DetailRow(
+                Icons.Default.AccountCircle,
+                if (isArabic) "المرسل" else "Sender",
+                it
+            )
+        }
+        event.evidence?.let {
+            DetailRow(
+                Icons.Default.AutoAwesome,
+                if (isArabic) "الدليل من الرسالة" else "Email evidence",
+                it
+            )
+        }
+        (event.description ?: event.notes)?.takeIf { it.isNotBlank() }?.let {
             Card(
                 Modifier.fillMaxWidth().padding(top = 14.dp),
                 shape = RoundedCornerShape(20.dp),
@@ -1646,6 +1803,20 @@ fun EventDetailsScreen(
             }
         }
         Spacer(Modifier.height(22.dp))
+        Button(
+            onClick = { showEdit = true },
+            enabled = !loading,
+            modifier = Modifier.fillMaxWidth().height(54.dp),
+            shape = RoundedCornerShape(17.dp)
+        ) {
+            Icon(Icons.Default.Edit, null)
+            Spacer(Modifier.width(8.dp))
+            Text(
+                if (isArabic) "تعديل الموعد" else "Edit event",
+                fontWeight = FontWeight.Bold
+            )
+        }
+        Spacer(Modifier.height(10.dp))
         OutlinedButton(onClick = { confirmDelete = true }, enabled = !loading, modifier = Modifier.fillMaxWidth().height(54.dp), shape = RoundedCornerShape(17.dp)) {
             Icon(Icons.Default.Delete, null, tint = Color(0xFFD94949))
             Spacer(Modifier.width(8.dp))
@@ -1657,13 +1828,17 @@ fun EventDetailsScreen(
 @Composable
 private fun DetailRow(icon: ImageVector, label: String, value: String) {
     Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(44.dp).clip(RoundedCornerShape(13.dp)).background(Color(0xFFEAFBC5)), contentAlignment = Alignment.Center) {
-            Icon(icon, null, tint = MiyadDarkBackground)
+        Box(
+            Modifier.size(44.dp).clip(RoundedCornerShape(13.dp))
+                .background(MaterialTheme.colorScheme.primaryContainer),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(icon, null, tint = MaterialTheme.colorScheme.onPrimaryContainer)
         }
         Spacer(Modifier.width(12.dp))
-        Column {
+        Column(Modifier.weight(1f)) {
             Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
-            Text(value, fontWeight = FontWeight.Bold)
+            Text(value, fontWeight = FontWeight.Bold, maxLines = 4)
         }
     }
 }
@@ -1672,6 +1847,24 @@ private fun DetailRow(icon: ImageVector, label: String, value: String) {
 fun SmartExtractionScreen(state: AppUiState, isArabic: Boolean) {
     val viewModel: AppViewModel = viewModel()
     var text by remember { mutableStateOf("") }
+    var reviewEvents by remember { mutableStateOf<List<EventDto>>(emptyList()) }
+    var editingIndex by remember { mutableStateOf<Int?>(null) }
+    LaunchedEffect(state.extractionPreview) {
+        reviewEvents = state.extractionPreview
+    }
+    editingIndex?.let { index ->
+        reviewEvents.getOrNull(index)?.let { event ->
+            ExtractionEditDialog(
+                event = event,
+                isArabic = isArabic,
+                onDismiss = { editingIndex = null },
+                onSave = { updated ->
+                    reviewEvents = reviewEvents.toMutableList().also { it[index] = updated }
+                    editingIndex = null
+                }
+            )
+        }
+    }
     LazyColumn(
         Modifier.fillMaxSize().statusBarsPadding().padding(horizontal = 18.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
@@ -1712,12 +1905,25 @@ fun SmartExtractionScreen(state: AppUiState, isArabic: Boolean) {
                 }
             }
         }
-        if (state.extractionPreview.isNotEmpty()) {
-            item { Text(if (isArabic) "مراجعة العناصر المستخرجة" else "Review extracted events", fontWeight = FontWeight.Bold, fontSize = 19.sp) }
-            items(state.extractionPreview) { EventCard(it, isArabic, null) }
+        if (reviewEvents.isNotEmpty()) {
+            item {
+                Text(
+                    if (isArabic) "مراجعة العناصر المستخرجة" else "Review extracted events",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 19.sp
+                )
+            }
+            itemsIndexed(reviewEvents) { index, event ->
+                ExtractionReviewCard(
+                    event = event,
+                    isArabic = isArabic,
+                    onEdit = { editingIndex = index }
+                )
+            }
             item {
                 Button(
-                    onClick = { viewModel.saveExtraction(text) },
+                    onClick = { viewModel.saveReviewedEvents(text, reviewEvents) },
+                    enabled = !state.extractionLoading,
                     modifier = Modifier.fillMaxWidth().height(54.dp),
                     shape = RoundedCornerShape(18.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = MiyadLime, contentColor = MiyadDarkBackground)
@@ -1735,7 +1941,9 @@ fun SmartExtractionScreen(state: AppUiState, isArabic: Boolean) {
             ) {
                 Card(
                     shape = RoundedCornerShape(20.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFFEAFBC5))
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer
+                    )
                 ) {
                     Row(
                         Modifier.fillMaxWidth().padding(18.dp),
@@ -1745,7 +1953,7 @@ fun SmartExtractionScreen(state: AppUiState, isArabic: Boolean) {
                             Icons.Default.Check,
                             null,
                             Modifier.size(30.dp),
-                            tint = MiyadDarkBackground
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer
                         )
                         Spacer(Modifier.width(10.dp))
                         Text(
@@ -1762,7 +1970,162 @@ fun SmartExtractionScreen(state: AppUiState, isArabic: Boolean) {
 }
 
 @Composable
-fun ProfileSettingsScreen(state: AppUiState, isArabic: Boolean) {
+private fun ExtractionReviewCard(
+    event: EventDto,
+    isArabic: Boolean,
+    onEdit: () -> Unit
+) {
+    val lowConfidence = event.confidence == "low"
+    GlassCard(strong = true) {
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.Top
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(event.title, fontWeight = FontWeight.Black, fontSize = 17.sp)
+                Text(
+                    formatDate(event.due_date, isArabic),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 12.sp
+                )
+            }
+            TextButton(onClick = onEdit) {
+                Icon(Icons.Default.Edit, null)
+                Spacer(Modifier.width(5.dp))
+                Text(if (isArabic) "تعديل" else "Edit")
+            }
+        }
+        event.course_name?.let {
+            Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        event.location?.let {
+            Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        event.evidence?.let {
+            Text(
+                if (isArabic) "الدليل: $it" else "Evidence: $it",
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        Surface(
+            color = if (lowConfidence) {
+                MaterialTheme.colorScheme.error.copy(alpha = 0.12f)
+            } else {
+                MiyadLime.copy(alpha = 0.18f)
+            },
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Text(
+                text = if (lowConfidence) {
+                    if (isArabic) "ثقة منخفضة: راجع الموعد قبل الحفظ" else
+                        "Low confidence: review before saving"
+                } else {
+                    if (isArabic) "الثقة: ${event.confidence}" else
+                        "Confidence: ${event.confidence}"
+                },
+                modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
+                fontSize = 11.sp,
+                color = if (lowConfidence) MaterialTheme.colorScheme.error else
+                    MaterialTheme.colorScheme.onSurface
+            )
+        }
+    }
+}
+
+@Composable
+private fun ExtractionEditDialog(
+    event: EventDto,
+    isArabic: Boolean,
+    onDismiss: () -> Unit,
+    onSave: (EventDto) -> Unit
+) {
+    var title by remember(event) { mutableStateOf(event.title) }
+    var dueDate by remember(event) { mutableStateOf(event.due_date) }
+    var course by remember(event) {
+        mutableStateOf(event.course_name ?: event.course_code.orEmpty())
+    }
+    var location by remember(event) { mutableStateOf(event.location.orEmpty()) }
+    var notes by remember(event) { mutableStateOf(event.notes.orEmpty()) }
+    var invalidDate by remember(event) { mutableStateOf(false) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(if (isArabic) "تعديل الموعد المستخلص" else "Edit extracted event") },
+        text = {
+            Column(
+                Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(9.dp)
+            ) {
+                OutlinedTextField(
+                    value = title,
+                    onValueChange = { title = it },
+                    label = { Text(if (isArabic) "العنوان" else "Title") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = dueDate,
+                    onValueChange = {
+                        dueDate = it
+                        invalidDate = false
+                    },
+                    label = { Text(if (isArabic) "التاريخ والوقت ISO" else "Date and time (ISO)") },
+                    isError = invalidDate,
+                    supportingText = if (invalidDate) {
+                        { Text(if (isArabic) "أدخل تاريخًا مع المنطقة الزمنية" else "Use a timezone-aware ISO date") }
+                    } else null,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = course,
+                    onValueChange = { course = it },
+                    label = { Text(if (isArabic) "المقرر" else "Course") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = location,
+                    onValueChange = { location = it },
+                    label = { Text(if (isArabic) "المكان أو الرابط" else "Location or link") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = notes,
+                    onValueChange = { notes = it },
+                    label = { Text(if (isArabic) "ملاحظات" else "Notes") },
+                    minLines = 2,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                if (title.isBlank() || runCatching { OffsetDateTime.parse(dueDate) }.isFailure) {
+                    invalidDate = true
+                    return@TextButton
+                }
+                onSave(
+                    event.copy(
+                        title = title.trim(),
+                        due_date = dueDate,
+                        course_name = course.ifBlank { null },
+                        location = location.ifBlank { null },
+                        notes = notes.ifBlank { null }
+                    )
+                )
+            }) {
+                Text(if (isArabic) "حفظ التعديل" else "Save changes")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(if (isArabic) "إلغاء" else "Cancel")
+            }
+        }
+    )
+}
+
+@Composable
+fun ProfileSettingsScreen(state: AppUiState, isArabic: Boolean, onNavigate: (AppScreen) -> Unit) {
     val viewModel: AppViewModel = viewModel()
     LazyColumn(
         Modifier.fillMaxSize().statusBarsPadding().padding(horizontal = 18.dp),
@@ -1781,6 +2144,14 @@ fun ProfileSettingsScreen(state: AppUiState, isArabic: Boolean) {
                     }
                 }
             }
+        }
+        item {
+            SettingsButton(
+                Icons.Default.School,
+                if (isArabic) "ملفي الأكاديمي" else "My Academic Profile",
+                if (isArabic) "إدارة المواد والجدول الدراسي" else "Manage courses and class schedule",
+                onClick = { onNavigate(AppScreen.AcademicProfile) }
+            )
         }
         item {
             SettingsToggle(
@@ -1860,9 +2231,9 @@ fun ProfileSettingsScreen(state: AppUiState, isArabic: Boolean) {
             ) {
                 Column(Modifier.padding(horizontal = 16.dp)) {
                     ReminderToggle(if (isArabic) "في نفس اليوم" else "Same day", state.settings.reminder_same_day) { viewModel.updateSettings(UserSettingsUpdate(reminder_same_day = it)) }
-                    HorizontalDivider(color = Color(0xFFE8EBE5))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                     ReminderToggle(if (isArabic) "قبل يوم" else "One day before", state.settings.reminder_one_day) { viewModel.updateSettings(UserSettingsUpdate(reminder_one_day = it)) }
-                    HorizontalDivider(color = Color(0xFFE8EBE5))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                     ReminderToggle(if (isArabic) "قبل أسبوع" else "One week before", state.settings.reminder_one_week) { viewModel.updateSettings(UserSettingsUpdate(reminder_one_week = it)) }
                 }
             }
@@ -1872,7 +2243,7 @@ fun ProfileSettingsScreen(state: AppUiState, isArabic: Boolean) {
                 shape = RoundedCornerShape(20.dp),
                 colors = CardDefaults.cardColors(
                     containerColor = if (state.settings.extension_connected) {
-                        Color(0xFFEAFBC5)
+                        MaterialTheme.colorScheme.primaryContainer
                     } else {
                         LocalMiyadGlassColors.current.strongSurface
                     }
@@ -1945,7 +2316,7 @@ fun ProfileSettingsScreen(state: AppUiState, isArabic: Boolean) {
 
 @Composable
 fun NotificationsSettingsScreen(state: AppUiState, isArabic: Boolean) {
-    ProfileSettingsScreen(state, isArabic)
+    ProfileSettingsScreen(state, isArabic, onNavigate = {})
 }
 
 @Composable
@@ -1968,6 +2339,31 @@ private fun SettingsToggle(icon: ImageVector, title: String, subtitle: String, c
                 )
             }
             Switch(checked, onChecked)
+        }
+    }
+}
+
+@Composable
+private fun SettingsButton(icon: ImageVector, title: String, subtitle: String, onClick: () -> Unit) {
+    Card(
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = LocalMiyadGlassColors.current.strongSurface
+        ),
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick)
+    ) {
+        Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(icon, null)
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(title, fontWeight = FontWeight.Bold)
+                Text(
+                    subtitle,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 12.sp
+                )
+            }
+            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null)
         }
     }
 }
@@ -2036,7 +2432,13 @@ private fun ErrorState(error: String?, isArabic: Boolean, retry: () -> Unit) {
 
 @Composable
 private fun SkeletonCard() {
-    Card(Modifier.fillMaxWidth().height(76.dp), shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFFE9EDE6))) {}
+    Card(
+        Modifier.fillMaxWidth().height(76.dp),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
+        )
+    ) {}
 }
 
 private fun repeatLabel(value: String, arabic: Boolean): String = when (value) {
@@ -2085,3 +2487,500 @@ private fun formatDate(value: String, arabic: Boolean): String = runCatching {
     val locale = if (arabic) Locale.forLanguageTag("ar") else Locale.ENGLISH
     date.format(DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM).withLocale(locale))
 }.getOrDefault(value)
+
+@Composable
+fun AcademicProfileScreen(
+    state: AppUiState,
+    isArabic: Boolean,
+    onBack: () -> Unit
+) {
+    val viewModel: AppViewModel = viewModel()
+    var showAddCourse by remember { mutableStateOf(false) }
+    var showAddSlot by remember { mutableStateOf(false) }
+
+    var courseCode by remember { mutableStateOf("") }
+    var courseName by remember { mutableStateOf("") }
+    var teachingPlan by remember { mutableStateOf("") }
+
+    var slotCourseCode by remember { mutableStateOf("") }
+    var slotDay by remember { mutableStateOf("Sunday") }
+    var slotStart by remember { mutableStateOf("08:30") }
+    var slotEnd by remember { mutableStateOf("10:00") }
+    var slotLocation by remember { mutableStateOf("") }
+
+    if (showAddCourse) {
+        AlertDialog(
+            onDismissRequest = { showAddCourse = false },
+            title = { Text(if (isArabic) "إضافة مقرر جديد" else "Add New Course") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = courseCode,
+                        onValueChange = { courseCode = it },
+                        label = { Text(if (isArabic) "رمز المقرر (مثال: CS101)" else "Course Code (e.g. CS101)") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = courseName,
+                        onValueChange = { courseName = it },
+                        label = { Text(if (isArabic) "اسم المقرر" else "Course Name") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = teachingPlan,
+                        onValueChange = { teachingPlan = it },
+                        label = { Text(if (isArabic) "الخطة الدراسية (نص/Syllabus)" else "Teaching Plan (text/Syllabus)") },
+                        minLines = 3,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        if (courseCode.isNotBlank() && courseName.isNotBlank()) {
+                            viewModel.addCourse(courseCode.trim(), courseName.trim(), teachingPlan.trim().ifBlank { null })
+                            showAddCourse = false
+                            courseCode = ""
+                            courseName = ""
+                            teachingPlan = ""
+                        }
+                    }
+                ) {
+                    Text(if (isArabic) "حفظ" else "Save")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showAddCourse = false }) {
+                    Text(if (isArabic) "إلغاء" else "Cancel")
+                }
+            }
+        )
+    }
+
+    if (showAddSlot) {
+        val days = listOf("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday")
+        val daysArabic = mapOf(
+            "Sunday" to "الأحد", "Monday" to "الاثنين", "Tuesday" to "الثلاثاء",
+            "Wednesday" to "الأربعاء", "Thursday" to "الخميس", "Friday" to "الجمعة", "Saturday" to "السبت"
+        )
+        AlertDialog(
+            onDismissRequest = { showAddSlot = false },
+            title = { Text(if (isArabic) "إضافة موعد محاضرة" else "Add Class Slot") },
+            text = {
+                Column(
+                    modifier = Modifier.verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(if (isArabic) "اختر المقرر:" else "Select Course:", fontWeight = FontWeight.Bold)
+                    Row(
+                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        state.courses.forEach { course ->
+                            FilterChip(
+                                selected = slotCourseCode == course.course_code,
+                                onClick = { slotCourseCode = course.course_code },
+                                label = { Text(course.course_code) }
+                            )
+                        }
+                    }
+
+                    OutlinedTextField(
+                        value = slotLocation,
+                        onValueChange = { slotLocation = it },
+                        label = { Text(if (isArabic) "القاعة / المكان" else "Room / Location") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Text(if (isArabic) "اليوم:" else "Day:", fontWeight = FontWeight.Bold)
+                    Row(
+                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        days.forEach { d ->
+                            FilterChip(
+                                selected = slotDay == d,
+                                onClick = { slotDay = d },
+                                label = { Text(if (isArabic) daysArabic[d] ?: d else d) }
+                            )
+                        }
+                    }
+
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        OutlinedTextField(
+                            value = slotStart,
+                            onValueChange = { slotStart = it },
+                            modifier = Modifier.weight(1f),
+                            label = { Text(if (isArabic) "وقت البدء (HH:MM)" else "Start Time") },
+                            singleLine = true
+                        )
+                        OutlinedTextField(
+                            value = slotEnd,
+                            onValueChange = { slotEnd = it },
+                            modifier = Modifier.weight(1f),
+                            label = { Text(if (isArabic) "وقت الانتهاء (HH:MM)" else "End Time") },
+                            singleLine = true
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        if (slotCourseCode.isNotBlank() && slotStart.isNotBlank() && slotEnd.isNotBlank()) {
+                            viewModel.addScheduleSlot(slotCourseCode, slotDay, slotStart, slotEnd, slotLocation.trim().ifBlank { null })
+                            showAddSlot = false
+                            slotLocation = ""
+                        }
+                    }
+                ) {
+                    Text(if (isArabic) "إضافة" else "Add")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showAddSlot = false }) {
+                    Text(if (isArabic) "إلغاء" else "Cancel")
+                }
+            }
+        )
+    }
+
+    LazyColumn(
+        Modifier.fillMaxSize().statusBarsPadding().padding(horizontal = 18.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = onBack) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                }
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    if (isArabic) "ملفي الأكاديمي" else "Academic Profile",
+                    fontFamily = ThmanyahSerifDisplay,
+                    fontWeight = FontWeight.Black,
+                    fontSize = 29.sp
+                )
+            }
+            Text(
+                if (isArabic) "إدارة موادك الدراسية وجدولك الأسبوعي لتحسين مطابقة المواعيد." else
+                    "Manage your academic courses and weekly schedule to improve event verification.",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 14.sp
+            )
+        }
+
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    if (isArabic) "المقررات المسجلة (${state.courses.size})" else "Registered Courses (${state.courses.size})",
+                    fontFamily = ThmanyahSerifDisplay,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 20.sp
+                )
+                TextButton(onClick = { showAddCourse = true }) {
+                    Icon(Icons.Default.Add, null)
+                    Spacer(Modifier.width(4.dp))
+                    Text(if (isArabic) "إضافة مادة" else "Add Course")
+                }
+            }
+        }
+
+        if (state.courses.isEmpty()) {
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = LocalMiyadGlassColors.current.strongSurface)
+                ) {
+                    Box(Modifier.padding(20.dp), contentAlignment = Alignment.Center) {
+                        Text(
+                            if (isArabic) "لم تقم بإضافة أي مواد بعد. أضف موادك لتمكين التحقق الذكي بالـ AI." else
+                                "No courses added yet. Add courses to enable smart AI verification.",
+                            textAlign = TextAlign.Center,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+        } else {
+            items(state.courses) { course ->
+                GlassCard {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(course.course_code, fontWeight = FontWeight.Black, fontSize = 18.sp, color = MiyadLime)
+                            Text(course.course_name, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                            course.teaching_plan?.let {
+                                Spacer(Modifier.height(4.dp))
+                                Text(
+                                    it,
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 3
+                                )
+                            }
+                        }
+                        IconButton(onClick = { viewModel.deleteCourse(course.course_code) }) {
+                            Icon(Icons.Default.Delete, contentDescription = "Delete", tint = Color(0xFFD94949))
+                        }
+                    }
+                }
+            }
+        }
+
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    if (isArabic) "جدول المحاضرات الأسبوعي" else "Weekly Class Schedule",
+                    fontFamily = ThmanyahSerifDisplay,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 20.sp
+                )
+                TextButton(
+                    onClick = {
+                        if (state.courses.isNotEmpty()) {
+                            slotCourseCode = state.courses.first().course_code
+                            showAddSlot = true
+                        }
+                    },
+                    enabled = state.courses.isNotEmpty()
+                ) {
+                    Icon(Icons.Default.Add, null)
+                    Spacer(Modifier.width(4.dp))
+                    Text(if (isArabic) "إضافة حصة" else "Add Slot")
+                }
+            }
+        }
+
+        if (state.schedule.isEmpty()) {
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = LocalMiyadGlassColors.current.strongSurface)
+                ) {
+                    Box(Modifier.padding(20.dp), contentAlignment = Alignment.Center) {
+                        Text(
+                            if (isArabic) "لا توجد محاضرات في جدولك الحالي." else "No classes in your schedule.",
+                            textAlign = TextAlign.Center,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+        } else {
+            val daysArabic = mapOf(
+                "Sunday" to "الأحد", "Monday" to "الاثنين", "Tuesday" to "الثلاثاء",
+                "Wednesday" to "الأربعاء", "Thursday" to "الخميس", "Friday" to "الجمعة", "Saturday" to "السبت"
+            )
+            val sortedSchedule = state.schedule.sortedWith(compareBy({
+                val daysOrder = listOf("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday")
+                daysOrder.indexOf(it.day_of_week)
+            }, { it.start_time }))
+
+            items(sortedSchedule) { slot ->
+                GlassCard {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            val dayText = if (isArabic) daysArabic[slot.day_of_week] ?: slot.day_of_week else slot.day_of_week
+                            Text("$dayText · ${slot.start_time.substring(0, 5)} - ${slot.end_time.substring(0, 5)}", fontWeight = FontWeight.Bold)
+                            Text(slot.course_code, fontWeight = FontWeight.Black, color = MiyadLime)
+                            slot.location?.let {
+                                Text(it, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                        IconButton(onClick = { viewModel.deleteScheduleSlot(slot.id) }) {
+                            Icon(Icons.Default.Delete, contentDescription = "Delete", tint = Color(0xFFD94949))
+                        }
+                    }
+                }
+            }
+        }
+
+        item { Spacer(Modifier.height(24.dp)) }
+    }
+}
+
+@Composable
+fun PendingAlertsScreen(
+    state: AppUiState,
+    isArabic: Boolean,
+    onBack: () -> Unit
+) {
+    val viewModel: AppViewModel = viewModel()
+
+    LazyColumn(
+        Modifier.fillMaxSize().statusBarsPadding().padding(horizontal = 18.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = onBack) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                }
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    if (isArabic) "مراجعة المواعيد" else "Review Events",
+                    fontFamily = ThmanyahSerifDisplay,
+                    fontWeight = FontWeight.Black,
+                    fontSize = 29.sp
+                )
+            }
+            Text(
+                if (isArabic) "هذه أحداث تم استخلاصها من بريدك ولكنها تحتاج إلى تأكيدك قبل حفظها." else
+                    "These events were extracted from your email but need your confirmation before saving.",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 14.sp
+            )
+        }
+
+        if (state.alerts.isEmpty()) {
+            item {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 60.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Icon(Icons.Default.Check, null, Modifier.size(54.dp), tint = MiyadLime)
+                    Spacer(Modifier.height(14.dp))
+                    Text(
+                        if (isArabic) "كل شيء ممتاز! لا توجد تنبيهات معلقة" else "All clear! No pending alerts",
+                        fontFamily = ThmanyahSerifDisplay,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 20.sp
+                    )
+                }
+            }
+        } else {
+            items(state.alerts) { alert ->
+                val event = alert.event_data
+                val isNotMatching = alert.alert_type == "not_matching"
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(22.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (isNotMatching) {
+                            MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.85f)
+                        } else {
+                            LocalMiyadGlassColors.current.strongSurface
+                        }
+                    ),
+                    border = androidx.compose.foundation.BorderStroke(
+                        1.dp,
+                        if (isNotMatching) MaterialTheme.colorScheme.error.copy(alpha = 0.4f) else LocalMiyadGlassColors.current.border
+                    )
+                ) {
+                    Column(Modifier.padding(18.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.Top
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(event.title, fontWeight = FontWeight.Black, fontSize = 18.sp)
+                                Text(
+                                    "${typeLabel(event.event_type, isArabic)} · ${formatDate(event.due_date, isArabic)}",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontSize = 12.sp
+                                )
+                                if (!event.course_code.isNullOrBlank()) {
+                                    Text(
+                                        if (isArabic) "المقرر: ${event.course_code}" else "Course: ${event.course_code}",
+                                        fontWeight = FontWeight.Bold,
+                                        color = MiyadLime,
+                                        fontSize = 13.sp
+                                    )
+                                }
+                            }
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = if (isNotMatching) MaterialTheme.colorScheme.error else MiyadLime.copy(alpha = 0.2f)
+                            ) {
+                                Text(
+                                    text = if (isNotMatching) {
+                                        if (isArabic) "غير متطابق" else "Not Matching"
+                                    } else {
+                                        if (isArabic) "يحتاج مراجعة" else "Needs Review"
+                                    },
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (isNotMatching) MaterialTheme.colorScheme.onError else MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                        }
+
+                        alert.ai_reason?.let { reason ->
+                            Spacer(Modifier.height(10.dp))
+                            Card(
+                                shape = RoundedCornerShape(12.dp),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                            ) {
+                                Row(modifier = Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.AutoAwesome, null, Modifier.size(16.dp), tint = MiyadLime)
+                                    Spacer(Modifier.width(6.dp))
+                                    Text(
+                                        reason,
+                                        fontSize = 12.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(Modifier.height(14.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            OutlinedButton(
+                                onClick = { viewModel.resolveAlert(alert.id, "reject") },
+                                modifier = Modifier.weight(1f).height(46.dp),
+                                shape = RoundedCornerShape(14.dp),
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFD94949))
+                            ) {
+                                Text(if (isArabic) "تجاهل" else "Dismiss", fontWeight = FontWeight.Bold)
+                            }
+
+                            Button(
+                                onClick = { viewModel.resolveAlert(alert.id, "confirm") },
+                                modifier = Modifier.weight(1f).height(46.dp),
+                                shape = RoundedCornerShape(14.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MiyadLime,
+                                    contentColor = MiyadDarkBackground
+                                )
+                            ) {
+                                Text(if (isArabic) "تأكيد وإضافة" else "Confirm & Add", fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        item { Spacer(Modifier.height(24.dp)) }
+    }
+}

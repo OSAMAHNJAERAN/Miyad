@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import auth, email, event, settings
+from app.api import academic, auth, email, event, settings
 from app.core.config import Settings, get_settings
 from app.services.llm import Extractor, OpenRouterExtractor
 from app.services.storage import Storage, create_storage
@@ -20,11 +20,16 @@ def create_app(
     async def lifespan(app: FastAPI):
         app.state.settings = app_settings
         app.state.storage = storage_override or create_storage(app_settings)
-        if not app_settings.openrouter_api_key and not extractor_override:
+        if extractor_override:
+            app.state.extractor = extractor_override
+        elif app_settings.openrouter_api_key:
+            app.state.extractor = OpenRouterExtractor(app_settings)
+        elif app_settings.environment == "development":
             from app.services.llm import FakeExtractor
             app.state.extractor = FakeExtractor()
         else:
-            app.state.extractor = extractor_override or OpenRouterExtractor(app_settings)
+            from app.services.llm import UnavailableExtractor
+            app.state.extractor = UnavailableExtractor()
         yield
 
     app = FastAPI(
@@ -41,16 +46,18 @@ def create_app(
     )
 
     @app.get("/health", tags=["health"])
-    def health() -> dict[str, str]:
+    def health() -> dict[str, str | bool]:
         return {
             "status": "ok",
             "environment": app_settings.environment,
             "database": app_settings.database_backend,
+            "ai_configured": bool(app_settings.openrouter_api_key or extractor_override),
         }
 
     app.include_router(auth.router)
     app.include_router(email.router)
     app.include_router(event.router)
+    app.include_router(academic.router)
     app.include_router(settings.router)
     app.include_router(settings.extension_router)
     return app

@@ -56,6 +56,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.miyad.data.EventCreateRequest
+import com.example.miyad.data.EventDto
 import com.example.miyad.theme.MiyadDarkBackground
 import com.example.miyad.theme.MiyadLime
 import com.example.miyad.theme.ThmanyahSerifDisplay
@@ -64,6 +65,7 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
+import java.time.OffsetDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
@@ -76,18 +78,47 @@ internal fun AddEventSheetV2(
     loading: Boolean,
     onDismiss: () -> Unit,
     onSave: (EventCreateRequest) -> Unit,
+    initialEvent: EventDto? = null,
 ) {
     val now = remember { LocalDateTime.now().withSecond(0).withNano(0) }
-    var title by remember { mutableStateOf("") }
-    var description by remember { mutableStateOf("") }
-    var date by remember { mutableStateOf(now.toLocalDate()) }
-    var startTime by remember { mutableStateOf(now.toLocalTime()) }
-    var endTime by remember { mutableStateOf(now.plusHours(1).toLocalTime()) }
-    var allDay by remember { mutableStateOf(false) }
-    var repeat by remember { mutableStateOf("none") }
-    var location by remember { mutableStateOf("") }
-    var reminder by remember { mutableStateOf("one_day") }
-    var color by remember { mutableStateOf("#B8F23A") }
+    val initialStart = remember(initialEvent?.id) {
+        initialEvent?.let {
+            runCatching {
+                OffsetDateTime.parse(it.start_time ?: it.due_date)
+                    .atZoneSameInstant(ZoneId.systemDefault())
+                    .toLocalDateTime()
+            }.getOrNull()
+        } ?: now
+    }
+    val initialEnd = remember(initialEvent?.id) {
+        initialEvent?.end_time?.let {
+            runCatching {
+                OffsetDateTime.parse(it)
+                    .atZoneSameInstant(ZoneId.systemDefault())
+                    .toLocalDateTime()
+            }.getOrNull()
+        } ?: initialStart.plusHours(1)
+    }
+    val editing = initialEvent != null
+    var title by remember(initialEvent?.id) { mutableStateOf(initialEvent?.title.orEmpty()) }
+    var description by remember(initialEvent?.id) {
+        mutableStateOf(initialEvent?.description ?: initialEvent?.notes.orEmpty())
+    }
+    var date by remember(initialEvent?.id) { mutableStateOf(initialStart.toLocalDate()) }
+    var startTime by remember(initialEvent?.id) { mutableStateOf(initialStart.toLocalTime()) }
+    var endTime by remember(initialEvent?.id) { mutableStateOf(initialEnd.toLocalTime()) }
+    var allDay by remember(initialEvent?.id) { mutableStateOf(initialEvent?.all_day ?: false) }
+    var repeat by remember(initialEvent?.id) { mutableStateOf(initialEvent?.repeat ?: "none") }
+    var location by remember(initialEvent?.id) { mutableStateOf(initialEvent?.location.orEmpty()) }
+    var reminder by remember(initialEvent?.id) {
+        mutableStateOf(initialEvent?.reminder ?: "one_day")
+    }
+    var color by remember(initialEvent?.id) {
+        mutableStateOf(initialEvent?.event_color ?: "#BCDA4B")
+    }
+    var eventType by remember(initialEvent?.id) {
+        mutableStateOf(initialEvent?.event_type ?: "other")
+    }
     var error by remember { mutableStateOf<String?>(null) }
     var optionalExpanded by remember { mutableStateOf(false) }
     var showDatePicker by remember { mutableStateOf(false) }
@@ -162,7 +193,12 @@ internal fun AddEventSheetV2(
         ) {
             Column {
                 Text(
-                    text = if (isArabic) "إضافة موعد" else "Add event",
+                    text = when {
+                        editing && isArabic -> "تعديل الموعد"
+                        editing -> "Edit event"
+                        isArabic -> "إضافة موعد"
+                        else -> "Add event"
+                    },
                     fontFamily = ThmanyahSerifDisplay,
                     fontWeight = FontWeight.Black,
                     fontSize = 28.sp,
@@ -275,6 +311,13 @@ internal fun AddEventSheetV2(
                         shape = RoundedCornerShape(18.dp),
                     )
                     ChoiceRow(
+                        label = if (isArabic) "نوع الموعد" else "Event type",
+                        values = listOf("exam", "deadline", "quiz", "lecture", "other"),
+                        selected = eventType,
+                        display = { eventTypeLabelV2(it, isArabic) },
+                        onSelected = { eventType = it },
+                    )
+                    ChoiceRow(
                         label = if (isArabic) "التكرار" else "Repeat",
                         values = listOf("none", "daily", "weekly", "monthly", "custom"),
                         selected = repeat,
@@ -293,7 +336,7 @@ internal fun AddEventSheetV2(
                         fontWeight = FontWeight.Bold,
                     )
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        listOf("#B8F23A", "#2388C9", "#8E6AC8", "#FFA000", "#D94949")
+                        listOf("#BCDA4B", "#2388C9", "#8E6AC8", "#FFA000", "#D94949")
                             .forEach { value ->
                                 val selected = color == value
                                 Box(
@@ -336,6 +379,7 @@ internal fun AddEventSheetV2(
                             location = location,
                             reminder = reminder,
                             color = color,
+                            eventType = eventType,
                         )
                     )
                 }.getOrElse {
@@ -364,10 +408,15 @@ internal fun AddEventSheetV2(
                     strokeWidth = 2.dp,
                 )
             } else {
-                Icon(Icons.Default.Add, null)
+                Icon(if (editing) Icons.Default.Schedule else Icons.Default.Add, null)
                 Spacer(Modifier.width(8.dp))
                 Text(
-                    if (isArabic) "حفظ الموعد" else "Save event",
+                    when {
+                        editing && isArabic -> "حفظ التغييرات"
+                        editing -> "Save changes"
+                        isArabic -> "حفظ الموعد"
+                        else -> "Save event"
+                    },
                     fontWeight = FontWeight.Black,
                 )
             }
@@ -460,4 +509,12 @@ private fun reminderLabelV2(value: String, arabic: Boolean): String = when (valu
     "one_day" -> if (arabic) "قبل يوم" else "One day"
     "one_week" -> if (arabic) "قبل أسبوع" else "One week"
     else -> if (arabic) "بدون" else "None"
+}
+
+private fun eventTypeLabelV2(value: String, arabic: Boolean): String = when (value) {
+    "exam" -> if (arabic) "اختبار" else "Exam"
+    "deadline" -> if (arabic) "تسليم" else "Deadline"
+    "quiz" -> if (arabic) "اختبار قصير" else "Quiz"
+    "lecture" -> if (arabic) "محاضرة" else "Lecture"
+    else -> if (arabic) "أخرى" else "Other"
 }

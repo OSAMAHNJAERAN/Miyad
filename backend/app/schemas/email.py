@@ -23,6 +23,17 @@ class ProcessEmailRequest(BaseModel):
         return value.lower()
 
 
+class ConfirmExtractionRequest(BaseModel):
+    metadata: EmailMetadata
+    email_hash: str = Field(pattern=r"^sha256:[a-fA-F0-9]{64}$")
+    events: list[ExtractedEvent] = Field(min_length=1, max_length=20)
+
+    @field_validator("email_hash")
+    @classmethod
+    def normalize_hash(cls, value: str) -> str:
+        return value.lower()
+
+
 class ManualExtractRequest(BaseModel):
     raw_content: str = Field(min_length=1, max_length=100_000)
     subject: str = Field(default="Manual extraction", max_length=500)
@@ -30,6 +41,15 @@ class ManualExtractRequest(BaseModel):
     timestamp: datetime
     timezone: str = Field(min_length=1, max_length=100)
     save: bool = True
+
+
+class ConfirmManualExtractionRequest(BaseModel):
+    raw_content: str = Field(min_length=1, max_length=100_000)
+    subject: str = Field(default="Manual extraction", max_length=500)
+    sender: str = Field(default="mobile-app", max_length=320)
+    timestamp: datetime
+    timezone: str = Field(min_length=1, max_length=100)
+    events: list[ExtractedEvent] = Field(min_length=1, max_length=20)
 
 
 class ProcessEmailResponse(BaseModel):

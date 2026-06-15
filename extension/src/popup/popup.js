@@ -20,6 +20,7 @@ const globalStatus = document.querySelector("#globalStatus");
 let mode = "login";
 let language = "en";
 let lastStatus = null;
+let previewEvents = [];
 
 function t(key, values) {
   return translate(language, key, values);
@@ -37,6 +38,13 @@ function request(message) {
       }
     });
   });
+}
+
+function friendlyExtractionError(error) {
+  if (/OPENROUTER_API_KEY|AI extraction is not configured/i.test(error.message)) {
+    return t("aiNotConfigured");
+  }
+  return error.message;
 }
 
 function show(name) {
@@ -62,9 +70,11 @@ function applyLanguage(nextLanguage) {
   updateAuthButton();
   if (lastStatus) {
     renderConnection(lastStatus.backend);
+    renderDetectedEmail(lastStatus.detectedEmail);
     renderRecent(lastStatus.recent || []);
     renderQueue(lastStatus.queued || 0);
   }
+  if (previewEvents.length) renderPreview(previewEvents);
 }
 
 function updateAuthButton() {
@@ -136,6 +146,106 @@ function renderQueue(count) {
     : "";
 }
 
+function renderDetectedEmail(email) {
+  const subject = document.querySelector("#detectedSubject");
+  const sender = document.querySelector("#detectedSender");
+  const badge = document.querySelector("#detectionBadge");
+  const extractButton = document.querySelector("#extractButton");
+  const detected = Boolean(email);
+  subject.textContent = detected ? email.subject || t("detectedEmailTitle") : t("noEmailDetected");
+  sender.textContent = detected ? email.sender || "" : "";
+  badge.textContent = t(detected ? "detected" : "notDetected");
+  badge.classList.toggle("active", detected);
+  extractButton.disabled = !detected || !lastStatus?.backend?.reachable;
+}
+
+function confidenceLabel(value) {
+  return t({
+    high: "confidenceHigh",
+    medium: "confidenceMedium",
+    low: "confidenceLow"
+  }[value] || "confidenceMedium");
+}
+
+function renderPreview(events) {
+  previewEvents = events;
+  const card = document.querySelector("#previewCard");
+  const list = document.querySelector("#previewList");
+  const confidence = document.querySelector("#previewConfidence");
+  const warning = document.querySelector("#reviewWarning");
+  if (!events.length) {
+    card.classList.add("hidden");
+    list.replaceChildren();
+    return;
+  }
+  const lowest = events.some((event) => event.confidence === "low")
+    ? "low"
+    : events.some((event) => event.confidence === "medium") ? "medium" : "high";
+  confidence.className = `confidence ${lowest}`;
+  confidence.textContent = `${t("confidence")}: ${confidenceLabel(lowest)}`;
+  warning.classList.toggle("hidden", lowest !== "low");
+  list.innerHTML = events.map((event, index) => `
+    <article class="preview-event" data-preview-index="${index}">
+      <p class="preview-hint">${escapeHtml(t("editBeforeSaving"))}</p>
+      <div class="preview-grid">
+        ${previewInput("title", t("title"), event.title)}
+        ${previewSelect("event_type", t("eventType"), event.event_type)}
+        ${previewInput("due_date", t("date"), event.due_date)}
+        ${previewInput(
+          "course_name",
+          t("course"),
+          event.course_name || event.course_code || ""
+        )}
+        ${previewInput("location", t("location"), event.location || "")}
+        ${previewInput("notes", t("notes"), event.notes || "")}
+      </div>
+      <dl class="preview-evidence">
+        <dt>${escapeHtml(t("sender"))}</dt>
+        <dd>${escapeHtml(event.source_email_sender || "-")}</dd>
+        <dt>${escapeHtml(t("evidence"))}</dt>
+        <dd>${escapeHtml(event.evidence || "-")}</dd>
+      </dl>
+    </article>
+  `).join("");
+  list.querySelectorAll("[data-preview-field]").forEach((control) => {
+    const update = () => {
+      const index = Number(control.closest(".preview-event").dataset.previewIndex);
+      previewEvents[index] = {
+        ...previewEvents[index],
+        [control.dataset.previewField]: control.value
+      };
+    };
+    control.addEventListener("input", update);
+    control.addEventListener("change", update);
+  });
+  card.classList.remove("hidden");
+}
+
+function previewInput(field, label, value) {
+  return `
+    <label class="preview-field">
+      <span>${escapeHtml(label)}</span>
+      <input data-preview-field="${field}" value="${escapeHtml(value)}">
+    </label>
+  `;
+}
+
+function previewSelect(field, label, selected) {
+  const options = ["exam", "deadline", "quiz", "lecture", "other"];
+  return `
+    <label class="preview-field">
+      <span>${escapeHtml(label)}</span>
+      <select data-preview-field="${field}">
+        ${options.map((value) => `
+          <option value="${value}" ${value === selected ? "selected" : ""}>
+            ${escapeHtml(formatEventType(value))}
+          </option>
+        `).join("")}
+      </select>
+    </label>
+  `;
+}
+
 function escapeHtml(value) {
   const element = document.createElement("span");
   element.textContent = value || "";
@@ -154,7 +264,9 @@ function renderConnection(backend) {
   element.classList.remove("hidden", "online", "offline");
   element.classList.add(backend.reachable ? "online" : "offline");
   element.textContent = backend.reachable
-    ? `${t("serverOnline")} · ${backend.apiUrl}`
+    ? `${t("serverOnline")} · ${backend.apiUrl}${
+      backend.aiConfigured === false ? ` · ${t("aiNotConfigured")}` : ""
+    }`
     : `${t("serverOffline")} · ${backend.apiUrl}. ${t("serverOfflineHelp")}`;
   retryButton.classList.toggle("hidden", backend.reachable);
 }
@@ -173,6 +285,7 @@ async function refresh() {
       return;
     }
     document.querySelector("#userEmail").textContent = status.user?.email || "";
+    renderDetectedEmail(status.detectedEmail);
     renderQueue(status.queued || 0);
     renderRecent(status.recent || []);
     show("connected");
@@ -254,6 +367,52 @@ authForm.addEventListener("submit", async (event) => {
 document.querySelector("#logoutButton").addEventListener("click", async () => {
   await request({ type: "LOGOUT" });
   await refresh();
+});
+
+document.querySelector("#extractButton").addEventListener("click", async () => {
+  const button = document.querySelector("#extractButton");
+  const error = document.querySelector("#extractError");
+  error.textContent = "";
+  renderPreview([]);
+  try {
+    setBusy(button, true, "extracting");
+    const result = await request({ type: "PREVIEW_CURRENT_EMAIL" });
+    if (!result.events?.length) {
+      error.textContent = t("noEventFound");
+      return;
+    }
+    renderPreview(result.events);
+  } catch (reason) {
+    error.textContent = friendlyExtractionError(reason);
+  } finally {
+    setBusy(button, false);
+  }
+});
+
+document.querySelector("#cancelPreview").addEventListener("click", () => {
+  renderPreview([]);
+  document.querySelector("#extractError").textContent = "";
+});
+
+document.querySelector("#confirmPreview").addEventListener("click", async () => {
+  const button = document.querySelector("#confirmPreview");
+  const error = document.querySelector("#extractError");
+  error.textContent = "";
+  try {
+    const invalid = previewEvents.some((event) =>
+      !event.title?.trim() || Number.isNaN(Date.parse(event.due_date))
+    );
+    if (invalid) throw new Error(t("reviewRequiredFields"));
+    setBusy(button, true, "sending");
+    await request({ type: "CONFIRM_CURRENT_PREVIEW", events: previewEvents });
+    renderPreview([]);
+    globalStatus.textContent = t("sentSuccessfully");
+    await refresh();
+  } catch (reason) {
+    error.textContent = friendlyExtractionError(reason);
+  } finally {
+    setBusy(button, false);
+  }
 });
 
 document.querySelector("#retryButton").addEventListener("click", refresh);

@@ -21,10 +21,17 @@ data class EventDto(
     val id: String = "",
     val title: String,
     val course_code: String?,
+    val course_name: String? = null,
+    val assignment_name: String? = null,
     val event_type: String,
     val due_date: String,
     val location: String?,
+    val lecturer: String? = null,
     val notes: String?,
+    val confidence: String = "medium",
+    val source_email_subject: String? = null,
+    val source_email_sender: String? = null,
+    val evidence: String? = null,
     val source_hash: String? = null,
     val created_at: String = "",
     val reminder: String? = null,
@@ -33,7 +40,7 @@ data class EventDto(
     val end_time: String? = null,
     val all_day: Boolean = false,
     val repeat: String = "none",
-    val event_color: String = "#B8F23A"
+    val event_color: String = "#BCDA4B"
 )
 
 data class EventsResponse(val events: List<EventDto>)
@@ -53,10 +60,17 @@ data class EventCreateRequest(
 
 data class EventUpdateRequest(
     val title: String? = null,
+    val event_type: String? = null,
+    val description: String? = null,
     val due_date: String? = null,
+    val start_time: String? = null,
+    val end_time: String? = null,
+    val all_day: Boolean? = null,
+    val repeat: String? = null,
     val notes: String? = null,
     val location: String? = null,
-    val reminder: String? = null
+    val reminder: String? = null,
+    val event_color: String? = null
 )
 
 data class ManualExtractRequest(
@@ -71,6 +85,15 @@ data class ManualExtractRequest(
 data class ExtractionResponse(
     val status: String,
     val events_created: Int,
+    val events: List<EventDto>
+)
+
+data class ConfirmManualExtractionRequest(
+    val raw_content: String,
+    val subject: String = "Manual extraction",
+    val sender: String = "mobile-app",
+    val timestamp: String,
+    val timezone: String,
     val events: List<EventDto>
 )
 
@@ -89,4 +112,55 @@ data class UserSettingsUpdate(
     val reminder_same_day: Boolean? = null,
     val reminder_one_day: Boolean? = null,
     val reminder_one_week: Boolean? = null
+)
+
+data class CourseDto(
+    val id: String,
+    val user_id: String,
+    val course_code: String,
+    val course_name: String,
+    val teaching_plan: String?,
+    val created_at: String
+)
+
+data class CourseCreateDto(
+    val course_code: String,
+    val course_name: String,
+    val teaching_plan: String?
+)
+
+data class ScheduleDto(
+    val id: String,
+    val user_id: String,
+    val course_code: String,
+    val day_of_week: String,
+    val start_time: String,
+    val end_time: String,
+    val location: String?,
+    val created_at: String
+)
+
+data class ScheduleCreateDto(
+    val course_code: String,
+    val day_of_week: String,
+    val start_time: String,
+    val end_time: String,
+    val location: String?
+)
+
+data class VerificationAlertDto(
+    val id: String,
+    val user_id: String,
+    val event_data: EventDto,
+    val email_hash: String,
+    val alert_type: String,
+    val ai_reason: String?,
+    val confidence: String,
+    val status: String,
+    val created_at: String,
+    val resolved_at: String?
+)
+
+data class AlertResolutionDto(
+    val action: String
 )

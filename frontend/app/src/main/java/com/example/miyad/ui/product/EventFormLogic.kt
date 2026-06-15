@@ -17,6 +17,7 @@ data class EventFormValues(
     val location: String,
     val reminder: String,
     val color: String,
+    val eventType: String = "other",
 )
 
 fun buildEventCreateRequest(
@@ -46,5 +47,6 @@ fun buildEventCreateRequest(
         location = values.location.trim().ifBlank { null },
         reminder = values.reminder,
         event_color = values.color,
+        event_type = values.eventType,
     )
 }

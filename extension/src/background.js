@@ -17,6 +17,9 @@ const RETRY_ALARM = "miyad-retry";
 const REQUEST_TIMEOUT_MS = 15_000;
 const THEMES = new Set(["system", "light", "dark"]);
 const LANGUAGES = new Set(["ar", "en"]);
+let currentEmail = null;
+let pendingPreview = null;
+const SESSION_PREVIEW = "miyad_pending_preview";
 
 async function syncGet(keys) {
   return chrome.storage.sync.get(keys);
@@ -24,6 +27,24 @@ async function syncGet(keys) {
 
 async function localGet(keys) {
   return chrome.storage.local.get(keys);
+}
+
+async function setPendingPreview(value) {
+  pendingPreview = value;
+  if (!chrome.storage.session) return;
+  if (value) {
+    await chrome.storage.session.set({ [SESSION_PREVIEW]: value });
+  } else {
+    await chrome.storage.session.remove(SESSION_PREVIEW);
+  }
+}
+
+async function getPendingPreview() {
+  if (pendingPreview) return pendingPreview;
+  if (!chrome.storage.session) return null;
+  const values = await chrome.storage.session.get(SESSION_PREVIEW);
+  pendingPreview = values[SESSION_PREVIEW] || null;
+  return pendingPreview;
 }
 
 async function apiConfig() {
@@ -187,7 +208,8 @@ export async function checkBackend() {
       reachable: health.status === "ok",
       apiUrl,
       environment: health.environment || "",
-      database: health.database || ""
+      database: health.database || "",
+      aiConfigured: health.ai_configured !== false
     };
   } catch (error) {
     return {
@@ -198,6 +220,81 @@ export async function checkBackend() {
   }
 }
 
+function buildEmailPayload(email) {
+  return {
+    metadata: {
+      subject: email.subject || "",
+      sender: email.sender || "",
+      timestamp: email.timestamp || new Date().toISOString(),
+      timezone: email.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone
+    },
+    raw_content: email.body,
+    email_hash: ""
+  };
+}
+
+async function currentOutlookEmail() {
+  if (chrome.tabs?.query && chrome.tabs?.sendMessage) {
+    try {
+      const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+      if (tab?.id) {
+        const response = await chrome.tabs.sendMessage(tab.id, {
+          type: "GET_CURRENT_EMAIL"
+        });
+        if (response?.email) currentEmail = response.email;
+      }
+    } catch {
+      // The popup may be opened outside Outlook; the last in-memory detection is safe.
+    }
+  }
+  return currentEmail;
+}
+
+export async function previewCurrentEmail() {
+  const { token } = await apiConfig();
+  if (!token) throw new Error("Connect your Miyad account first.");
+  const email = await currentOutlookEmail();
+  if (!email?.body) throw new Error("Open an Outlook email first, then try again.");
+  const payload = buildEmailPayload(email);
+  payload.email_hash = await sha256(emailFingerprintSource(email));
+  const result = await callApi("/api/preview-email", {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+  await setPendingPreview({ payload, events: result.events || [] });
+  return {
+    ...result,
+    detected: {
+      subject: email.subject || "",
+      sender: email.sender || ""
+    }
+  };
+}
+
+export async function confirmCurrentPreview(reviewedEvents = null) {
+  const preview = await getPendingPreview();
+  const events = Array.isArray(reviewedEvents) ? reviewedEvents : preview?.events;
+  if (!preview || !events?.length) {
+    throw new Error("Extract an event and review it before saving.");
+  }
+  await setPendingPreview({ ...preview, events });
+  const result = await callApi("/api/confirm-extraction", {
+    method: "POST",
+    body: JSON.stringify({
+      metadata: preview.payload.metadata,
+      email_hash: preview.payload.email_hash,
+      events
+    })
+  });
+  if (["success", "already_processed"].includes(result.status)) {
+    await rememberHash(preview.payload.email_hash);
+  }
+  await rememberRecent(result.events);
+  await sendHeartbeat().catch(() => {});
+  await setPendingPreview(null);
+  return result;
+}
+
 export async function processEmail(email, force = false) {
   const { token } = await apiConfig();
   if (!token) throw new Error("Connect your Miyad account first.");
@@ -206,16 +303,8 @@ export async function processEmail(email, force = false) {
   if (!force && (await wasProcessed(emailHash))) {
     return { status: "already_processed", events_created: 0 };
   }
-  const payload = {
-    metadata: {
-      subject: email.subject || "",
-      sender: email.sender || "",
-      timestamp: email.timestamp || new Date().toISOString(),
-      timezone: email.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone
-    },
-    raw_content: email.body,
-    email_hash: emailHash
-  };
+  const payload = buildEmailPayload(email);
+  payload.email_hash = emailHash;
 
   try {
     const result = await callApi("/api/process-email", {
@@ -286,7 +375,9 @@ chrome.runtime.onInstalled.addListener(() => {
       contexts: ["selection"],
       documentUrlPatterns: [
         "https://outlook.office.com/*",
-        "https://outlook.live.com/*"
+        "https://outlook.live.com/*",
+        "https://outlook.office365.com/*",
+        "https://outlook.cloud.microsoft/*"
       ]
     });
   });
@@ -331,6 +422,14 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     switch (message.type) {
       case "PROCESS_EMAIL":
         return processEmail(message.email);
+      case "EMAIL_DETECTED":
+        currentEmail = message.email?.body ? message.email : null;
+        await setPendingPreview(null);
+        return { detected: Boolean(currentEmail) };
+      case "PREVIEW_CURRENT_EMAIL":
+        return previewCurrentEmail();
+      case "CONFIRM_CURRENT_PREVIEW":
+        return confirmCurrentPreview(message.events);
       case "LOGIN": {
         const result = await callApi("/api/auth/login", {
           method: "POST",
@@ -363,6 +462,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       case "STATUS": {
         const sync = await syncGet([STORAGE.TOKEN, STORAGE.USER, STORAGE.API_URL]);
         const backend = await checkBackend();
+        const detected = await currentOutlookEmail();
         if (sync[STORAGE.TOKEN] && backend.reachable) {
           await sendHeartbeat().catch(() => {});
         }
@@ -375,6 +475,10 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
           apiUrl: sync[STORAGE.API_URL] || DEFAULT_API_URL,
           recent: local[STORAGE.RECENT] || [],
           queued: (local[STORAGE.QUEUE] || []).length,
+          detectedEmail: detected ? {
+            subject: detected.subject || "",
+            sender: detected.sender || ""
+          } : null,
           preferences
         };
       }

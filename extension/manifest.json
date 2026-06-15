@@ -5,12 +5,15 @@
   "description": "Capture academic events from Outlook Web App and sync them to Miyad.",
   "permissions": [
     "storage",
+    "activeTab",
     "contextMenus",
     "alarms"
   ],
   "host_permissions": [
     "https://outlook.office.com/*",
     "https://outlook.live.com/*",
+    "https://outlook.office365.com/*",
+    "https://outlook.cloud.microsoft/*",
     "http://127.0.0.1:8000/*",
     "http://localhost:8000/*",
     "https://api.miyad.app/*"
@@ -27,7 +30,9 @@
     {
       "matches": [
         "https://outlook.office.com/*",
-        "https://outlook.live.com/*"
+        "https://outlook.live.com/*",
+        "https://outlook.office365.com/*",
+        "https://outlook.cloud.microsoft/*"
       ],
       "js": [
         "src/utils/logger.js",

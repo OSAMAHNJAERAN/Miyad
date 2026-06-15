@@ -10,6 +10,9 @@ import com.example.miyad.data.TokenStore
 import com.example.miyad.data.UserDto
 import com.example.miyad.data.UserSettingsDto
 import com.example.miyad.data.UserSettingsUpdate
+import com.example.miyad.data.CourseDto
+import com.example.miyad.data.ScheduleDto
+import com.example.miyad.data.VerificationAlertDto
 import com.example.miyad.notifications.ReminderScheduler
 import com.example.miyad.theme.ThemeMode
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -33,7 +36,11 @@ data class AppUiState(
     val extractionLoading: Boolean = false,
     val extractionSaved: Boolean = false,
     val error: String? = null,
-    val message: String? = null
+    val message: String? = null,
+    val courses: List<CourseDto> = emptyList(),
+    val schedule: List<ScheduleDto> = emptyList(),
+    val alerts: List<VerificationAlertDto> = emptyList(),
+    val academicLoading: Boolean = false
 )
 
 class AppViewModel(application: Application) : AndroidViewModel(application) {
@@ -152,6 +159,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                     )
                 }
                 tokenStore.language = settings.preferred_language
+                loadAcademicData()
             }.onFailure { error ->
                 if (repository.friendlyError(error).contains("401")) logout()
                 _state.update {
@@ -228,6 +236,44 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     fun previewExtraction(text: String) = extract(text, save = false)
     fun saveExtraction(text: String) = extract(text, save = true)
+
+    fun saveReviewedEvents(text: String, events: List<EventDto>) {
+        if (events.isEmpty()) return
+        viewModelScope.launch {
+            _state.update { it.copy(extractionLoading = true, error = null) }
+            runCatching {
+                repository.confirmReviewedExtraction(text, events)
+                repository.events()
+            }.onSuccess { merged ->
+                reminderScheduler.sync(
+                    merged,
+                    _state.value.settings,
+                    _state.value.language
+                )
+                _state.update {
+                    it.copy(
+                        events = merged,
+                        extractionPreview = emptyList(),
+                        extractionLoading = false,
+                        extractionSaved = true,
+                        message = if (it.language == "ar") {
+                            "تم حفظ المواعيد التي راجعتها"
+                        } else {
+                            "Reviewed events saved successfully"
+                        }
+                    )
+                }
+            }.onFailure { error ->
+                _state.update {
+                    it.copy(
+                        extractionLoading = false,
+                        extractionSaved = false,
+                        error = repository.friendlyError(error)
+                    )
+                }
+            }
+        }
+    }
 
     private fun extract(text: String, save: Boolean) {
         if (text.isBlank()) {
@@ -361,6 +407,180 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                         it.copy(loading = false, error = repository.friendlyError(error))
                     }
                 }
+        }
+    }
+
+    fun updateSelectedEvent(
+        request: EventCreateRequest,
+        onUpdated: () -> Unit = {}
+    ) {
+        val event = _state.value.selectedEvent ?: return
+        viewModelScope.launch {
+            _state.update { it.copy(loading = true, error = null) }
+            runCatching { repository.updateEvent(event.id, request) }
+                .onSuccess { updated ->
+                    val events = _state.value.events
+                        .map { if (it.id == updated.id) updated else it }
+                        .sortedBy { it.due_date }
+                    reminderScheduler.sync(
+                        events,
+                        _state.value.settings,
+                        _state.value.language
+                    )
+                    _state.update {
+                        it.copy(
+                            events = events,
+                            selectedEvent = updated,
+                            loading = false,
+                            message = if (it.language == "ar") {
+                                "تم تحديث الموعد"
+                            } else {
+                                "Event updated"
+                            }
+                        )
+                    }
+                    onUpdated()
+                }
+                .onFailure { error ->
+                    _state.update {
+                        it.copy(loading = false, error = repository.friendlyError(error))
+                    }
+                }
+        }
+    }
+
+    fun loadAcademicData() {
+        if (!_state.value.authenticated) return
+        viewModelScope.launch {
+            _state.update { it.copy(academicLoading = true, error = null) }
+            runCatching {
+                val courses = repository.getCourses()
+                val schedule = repository.getSchedule()
+                val alerts = repository.getAlerts("pending")
+                Triple(courses, schedule, alerts)
+            }.onSuccess { (courses, schedule, alerts) ->
+                _state.update {
+                    it.copy(
+                        courses = courses,
+                        schedule = schedule,
+                        alerts = alerts,
+                        academicLoading = false
+                    )
+                }
+            }.onFailure { error ->
+                _state.update {
+                    it.copy(academicLoading = false, error = repository.friendlyError(error))
+                }
+            }
+        }
+    }
+
+    fun addCourse(courseCode: String, courseName: String, teachingPlan: String?, onComplete: () -> Unit = {}) {
+        viewModelScope.launch {
+            _state.update { it.copy(academicLoading = true, error = null) }
+            runCatching {
+                repository.createCourse(com.example.miyad.data.CourseCreateDto(courseCode, courseName, teachingPlan))
+            }.onSuccess {
+                loadAcademicData()
+                _state.update {
+                    it.copy(
+                        message = if (it.language == "ar") "تم حفظ المادة بنجاح" else "Course saved successfully"
+                    )
+                }
+                onComplete()
+            }.onFailure { error ->
+                _state.update {
+                    it.copy(academicLoading = false, error = repository.friendlyError(error))
+                }
+            }
+        }
+    }
+
+    fun deleteCourse(courseCode: String) {
+        viewModelScope.launch {
+            _state.update { it.copy(academicLoading = true, error = null) }
+            runCatching {
+                repository.deleteCourse(courseCode)
+            }.onSuccess {
+                loadAcademicData()
+                _state.update {
+                    it.copy(
+                        message = if (it.language == "ar") "تم حذف المادة والجدول الخاص بها" else "Course and its schedule deleted"
+                    )
+                }
+            }.onFailure { error ->
+                _state.update {
+                    it.copy(academicLoading = false, error = repository.friendlyError(error))
+                }
+            }
+        }
+    }
+
+    fun addScheduleSlot(courseCode: String, dayOfWeek: String, startTime: String, endTime: String, location: String?, onComplete: () -> Unit = {}) {
+        viewModelScope.launch {
+            _state.update { it.copy(academicLoading = true, error = null) }
+            runCatching {
+                repository.createSchedule(com.example.miyad.data.ScheduleCreateDto(courseCode, dayOfWeek, startTime, endTime, location))
+            }.onSuccess {
+                loadAcademicData()
+                _state.update {
+                    it.copy(
+                        message = if (it.language == "ar") "تمت إضافة وقت المحاضرة للجدول" else "Class time added to schedule"
+                    )
+                }
+                onComplete()
+            }.onFailure { error ->
+                _state.update {
+                    it.copy(academicLoading = false, error = repository.friendlyError(error))
+                }
+            }
+        }
+    }
+
+    fun deleteScheduleSlot(slotId: String) {
+        viewModelScope.launch {
+            _state.update { it.copy(academicLoading = true, error = null) }
+            runCatching {
+                repository.deleteSchedule(slotId)
+            }.onSuccess {
+                loadAcademicData()
+                _state.update {
+                    it.copy(
+                        message = if (it.language == "ar") "تم حذف وقت المحاضرة" else "Class time deleted"
+                    )
+                }
+            }.onFailure { error ->
+                _state.update {
+                    it.copy(academicLoading = false, error = repository.friendlyError(error))
+                }
+            }
+        }
+    }
+
+    fun resolveAlert(alertId: String, action: String) {
+        viewModelScope.launch {
+            _state.update { it.copy(academicLoading = true, error = null) }
+            runCatching {
+                repository.resolveAlert(alertId, action)
+            }.onSuccess {
+                loadAcademicData()
+                if (action == "confirm") {
+                    refresh()
+                }
+                _state.update {
+                    it.copy(
+                        message = if (it.language == "ar") {
+                            if (action == "confirm") "تمت الإضافة للتقويم بنجاح" else "تم تجاهل الحدث"
+                        } else {
+                            if (action == "confirm") "Event added to calendar" else "Event dismissed"
+                        }
+                    )
+                }
+            }.onFailure { error ->
+                _state.update {
+                    it.copy(academicLoading = false, error = repository.friendlyError(error))
+                }
+            }
         }
     }
 }
