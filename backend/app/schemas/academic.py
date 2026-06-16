@@ -58,3 +58,5 @@ class VerificationAlertResponse(BaseModel):
 
 class AlertResolution(BaseModel):
     action: Literal['confirm', 'reject']
+    event_data: dict | None = None
+

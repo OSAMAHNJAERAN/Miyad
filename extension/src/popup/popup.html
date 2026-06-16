@@ -88,45 +88,141 @@
           <small data-i18n="privacyNote">Miyad reads only the email you open.</small>
         </div>
 
-        <div class="glass detection-card">
-          <div class="detection-heading">
-            <div>
-              <strong data-i18n="detectedEmailTitle">Current Outlook email</strong>
-              <p id="detectedSubject" data-i18n="noEmailDetected">No open email detected</p>
-              <small id="detectedSender"></small>
-            </div>
-            <span id="detectionBadge" class="detection-badge" data-i18n="notDetected">Not detected</span>
-          </div>
-          <button id="extractButton" class="primary" type="button">
-            <span class="button-label" data-i18n="extractEvent">Extract event</span>
-            <span class="button-loader" aria-hidden="true"></span>
-          </button>
-          <p id="extractError" class="error" role="alert" aria-live="assertive"></p>
+        <div class="tabs view-tabs" role="tablist">
+          <button class="tab view-tab active" type="button" role="tab" data-target="scannerSection" data-i18n="navScanner">Scanner</button>
+          <button class="tab view-tab" type="button" role="tab" data-target="alertsSection" data-i18n="navAlerts">Alerts</button>
+          <button class="tab view-tab" type="button" role="tab" data-target="coursesSection" data-i18n="navCourses">Courses</button>
         </div>
 
-        <section id="previewCard" class="glass preview-card hidden" aria-live="polite">
-          <div class="preview-heading">
-            <h2 data-i18n="reviewExtraction">Review extracted event</h2>
-            <span id="previewConfidence" class="confidence"></span>
-          </div>
-          <div id="previewList" class="preview-list"></div>
-          <p id="reviewWarning" class="review-warning hidden" data-i18n="reviewLowConfidence">
-            Please review this event before saving.
-          </p>
-          <div class="preview-actions">
-            <button id="cancelPreview" class="secondary" type="button" data-i18n="cancel">Cancel</button>
-            <button id="confirmPreview" class="primary" type="button">
-              <span class="button-label" data-i18n="sendToMiyad">Send to Miyad</span>
+        <!-- Scanner Section -->
+        <div id="scannerSection" class="view-section">
+          <div class="glass detection-card">
+            <div class="detection-heading">
+              <div>
+                <strong data-i18n="detectedEmailTitle">Current Outlook email</strong>
+                <p id="detectedSubject" data-i18n="noEmailDetected">No open email detected</p>
+                <small id="detectedSender"></small>
+              </div>
+              <span id="detectionBadge" class="detection-badge" data-i18n="notDetected">Not detected</span>
+            </div>
+            <button id="extractButton" class="primary" type="button">
+              <span class="button-label" data-i18n="extractEvent">Extract event</span>
               <span class="button-loader" aria-hidden="true"></span>
             </button>
+            <p id="extractError" class="error" role="alert" aria-live="assertive"></p>
           </div>
-        </section>
 
-        <div class="section-title">
-          <h2 data-i18n="recentEvents">Recent events</h2>
-          <span id="queueBadge" class="queue-badge"></span>
+          <section id="previewCard" class="glass preview-card hidden" aria-live="polite">
+            <div class="preview-heading">
+              <h2 data-i18n="reviewExtraction">Review extracted event</h2>
+              <span id="previewConfidence" class="confidence"></span>
+            </div>
+            <div id="previewList" class="preview-list"></div>
+            <p id="reviewWarning" class="review-warning hidden" data-i18n="reviewLowConfidence">
+              Please review this event before saving.
+            </p>
+            <div class="preview-actions">
+              <button id="cancelPreview" class="secondary" type="button" data-i18n="cancel">Cancel</button>
+              <button id="confirmPreview" class="primary" type="button">
+                <span class="button-label" data-i18n="sendToMiyad">Send to Miyad</span>
+                <span class="button-loader" aria-hidden="true"></span>
+              </button>
+            </div>
+          </section>
+
+          <div class="section-title">
+            <h2 data-i18n="recentEvents">Recent events</h2>
+            <span id="queueBadge" class="queue-badge"></span>
+          </div>
+          <div id="recentList" class="recent-list"></div>
         </div>
-        <div id="recentList" class="recent-list"></div>
+
+        <!-- Alerts Section -->
+        <div id="alertsSection" class="view-section hidden">
+          <div id="alertsList" class="alerts-list"></div>
+        </div>
+
+        <!-- Courses & Schedule Section -->
+        <div id="coursesSection" class="view-section hidden">
+          <div class="glass form-card">
+            <strong data-i18n="addCourse">Add Course</strong>
+            <form id="courseForm" novalidate>
+              <label class="field">
+                <span data-i18n="courseCode">Course Code</span>
+                <input id="courseCode" required placeholder="e.g. SWE3001">
+                <small class="field-error"></small>
+              </label>
+              <label class="field">
+                <span data-i18n="courseName">Course Name</span>
+                <input id="courseName" required placeholder="e.g. Software Testing">
+                <small class="field-error"></small>
+              </label>
+              <label class="field">
+                <span data-i18n="teachingPlan">Teaching Plan / Description</span>
+                <input id="teachingPlan" placeholder="Optional notes or plan">
+                <small class="field-error"></small>
+              </label>
+              <button id="courseSubmit" class="primary" type="submit">
+                <span class="button-label" data-i18n="addCourse">Add Course</span>
+              </button>
+            </form>
+            <p id="courseError" class="error" role="alert"></p>
+          </div>
+
+          <div class="section-title">
+            <h2 data-i18n="navCourses">Courses</h2>
+          </div>
+          <div id="coursesList" class="courses-list"></div>
+
+          <div class="glass form-card" style="margin-top: 16px;">
+            <strong data-i18n="addSlot">Add Slot</strong>
+            <form id="scheduleForm" novalidate>
+              <label class="field">
+                <span data-i18n="course">Course</span>
+                <select id="scheduleCourseCode" required></select>
+                <small class="field-error"></small>
+              </label>
+              <label class="field">
+                <span data-i18n="dayOfWeek">Day</span>
+                <select id="scheduleDayOfWeek" required>
+                  <option value="Monday">Monday</option>
+                  <option value="Tuesday">Tuesday</option>
+                  <option value="Wednesday">Wednesday</option>
+                  <option value="Thursday">Thursday</option>
+                  <option value="Friday">Friday</option>
+                  <option value="Saturday">Saturday</option>
+                  <option value="Sunday">Sunday</option>
+                </select>
+                <small class="field-error"></small>
+              </label>
+              <label class="field">
+                <span data-i18n="startTime">Start Time</span>
+                <input id="scheduleStartTime" type="time" required>
+                <small class="field-error"></small>
+              </label>
+              <label class="field">
+                <span data-i18n="endTime">End Time</span>
+                <input id="scheduleEndTime" type="time" required>
+                <small class="field-error"></small>
+              </label>
+              <label class="field">
+                <span data-i18n="location">Location / link</span>
+                <input id="scheduleLocation" placeholder="e.g. Lab 3">
+                <small class="field-error"></small>
+              </label>
+              <button id="scheduleSubmit" class="primary" type="submit">
+                <span class="button-label" data-i18n="addSlot">Add Slot</span>
+              </button>
+            </form>
+            <p id="scheduleError" class="error" role="alert"></p>
+          </div>
+
+          <div class="section-title">
+            <h2 data-i18n="scheduleSlots">Weekly Schedule Slots</h2>
+          </div>
+          <div id="scheduleList" class="schedule-list"></div>
+        </div>
+
         <button id="logoutButton" class="secondary" type="button">
           <img src="../../icons/logout.svg" alt="">
           <span data-i18n="logout">Log out</span>

@@ -459,6 +459,35 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       case "LOGOUT":
         await chrome.storage.sync.remove([STORAGE.TOKEN, STORAGE.USER]);
         return { success: true };
+      case "GET_ALERTS":
+        return callApi("/api/alerts?status_filter=" + (message.status || "pending"));
+      case "RESOLVE_ALERT":
+        return callApi(`/api/alerts/${message.alertId}/resolve`, {
+          method: "POST",
+          body: JSON.stringify(message.payload)
+        });
+      case "GET_COURSES":
+        return callApi("/api/courses");
+      case "CREATE_COURSE":
+        return callApi("/api/courses", {
+          method: "POST",
+          body: JSON.stringify(message.payload)
+        });
+      case "DELETE_COURSE":
+        return callApi(`/api/courses/${message.courseCode}`, {
+          method: "DELETE"
+        });
+      case "GET_SCHEDULE":
+        return callApi("/api/schedule");
+      case "CREATE_SCHEDULE":
+        return callApi("/api/schedule", {
+          method: "POST",
+          body: JSON.stringify(message.payload)
+        });
+      case "DELETE_SCHEDULE":
+        return callApi(`/api/schedule/${message.slotId}`, {
+          method: "DELETE"
+        });
       case "STATUS": {
         const sync = await syncGet([STORAGE.TOKEN, STORAGE.USER, STORAGE.API_URL]);
         const backend = await checkBackend();

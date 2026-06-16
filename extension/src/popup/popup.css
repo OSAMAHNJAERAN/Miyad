@@ -335,8 +335,195 @@ input[aria-invalid="true"] { border-color: var(--danger); }
   border: 0;
 }
 
-[dir="rtl"] .brand-copy, [dir="rtl"] .status-card, [dir="rtl"] .recent-item { text-align: right; }
+/* View Tabs & Sections */
+.view-tabs {
+  margin-block: 16px 12px;
+}
+.view-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.view-section.hidden {
+  display: none !important;
+}
+
+/* Forms */
+.form-card {
+  margin-bottom: 12px;
+}
+.form-card strong {
+  display: block;
+  font-size: 14px;
+  margin-bottom: 4px;
+}
+.form-card select {
+  width: 100%;
+  min-height: 44px;
+  margin-top: 6px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--control);
+  color: var(--text);
+  padding: 10px 12px;
+  outline: none;
+}
+
+/* Alerts List */
+.alerts-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.alert-item {
+  padding: 16px;
+  border-radius: 20px;
+}
+.alert-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+.alert-header h3 {
+  margin: 0;
+  font-size: 14px;
+}
+.alert-badge {
+  padding: 4px 8px;
+  border-radius: 99px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+.alert-badge.needs_review {
+  background: rgba(217, 160, 32, 0.16);
+  color: #896000;
+}
+:root[data-theme="dark"] .alert-badge.needs_review {
+  color: #f1d26b;
+}
+.alert-badge.not_matching {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+.alert-reason {
+  font-size: 11px;
+  color: var(--muted);
+  background: var(--control);
+  padding: 8px;
+  border-radius: 8px;
+  margin-bottom: 12px;
+}
+.alert-edit-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.alert-edit-grid label {
+  display: flex;
+  flex-direction: column;
+  font-size: 10px;
+  color: var(--muted);
+}
+.alert-edit-grid input, .alert-edit-grid select {
+  margin-top: 4px;
+  min-height: 36px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  font-size: 11px;
+}
+.alert-actions {
+  display: flex;
+  gap: 8px;
+}
+.alert-actions button {
+  flex: 1;
+}
+.btn-approve {
+  background: var(--lime);
+  color: #030301;
+  border: none;
+}
+.btn-reject {
+  background: var(--danger-soft);
+  color: var(--danger);
+  border: 1px solid var(--border);
+}
+
+/* Courses & Schedule items */
+.courses-list, .schedule-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.course-row, .schedule-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+.course-info h3, .schedule-info h3 {
+  margin: 0;
+  font-size: 13px;
+}
+.course-info p, .schedule-info p {
+  margin: 4px 0 0;
+  font-size: 11px;
+  color: var(--muted);
+}
+.btn-delete {
+  background: transparent;
+  color: var(--danger);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 4px 8px;
+  font-size: 11px;
+  min-height: 28px;
+}
+.btn-delete:hover {
+  background: var(--danger-soft);
+}
+
+/* Inline Verification Badge in preview */
+.verification-status-box {
+  grid-column: 1 / -1;
+  border-radius: 12px;
+  padding: 10px;
+  font-size: 11px;
+  margin-bottom: 8px;
+  border: 1px solid var(--border);
+}
+.verification-status-box.auto_add {
+  background: var(--lime-soft);
+  border-color: rgba(188, 218, 75, 0.3);
+}
+.verification-status-box.needs_review {
+  background: rgba(217, 160, 32, 0.1);
+  border-color: rgba(217, 160, 32, 0.2);
+  color: #896000;
+}
+:root[data-theme="dark"] .verification-status-box.needs_review {
+  color: #f1d26b;
+}
+.verification-status-box.not_matching {
+  background: var(--danger-soft);
+  border-color: rgba(200, 57, 57, 0.2);
+  color: var(--danger);
+}
+.verification-status-box strong {
+  display: block;
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+
+[dir="rtl"] .brand-copy, [dir="rtl"] .status-card, [dir="rtl"] .recent-item, [dir="rtl"] .alert-item, [dir="rtl"] .course-row, [dir="rtl"] .schedule-row { text-align: right; }
 [dir="rtl"] .status-card p { text-align: right; }
+
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

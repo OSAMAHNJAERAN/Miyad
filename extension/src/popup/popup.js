@@ -184,29 +184,49 @@ function renderPreview(events) {
   confidence.className = `confidence ${lowest}`;
   confidence.textContent = `${t("confidence")}: ${confidenceLabel(lowest)}`;
   warning.classList.toggle("hidden", lowest !== "low");
-  list.innerHTML = events.map((event, index) => `
-    <article class="preview-event" data-preview-index="${index}">
-      <p class="preview-hint">${escapeHtml(t("editBeforeSaving"))}</p>
-      <div class="preview-grid">
-        ${previewInput("title", t("title"), event.title)}
-        ${previewSelect("event_type", t("eventType"), event.event_type)}
-        ${previewInput("due_date", t("date"), event.due_date)}
-        ${previewInput(
-          "course_name",
-          t("course"),
-          event.course_name || event.course_code || ""
-        )}
-        ${previewInput("location", t("location"), event.location || "")}
-        ${previewInput("notes", t("notes"), event.notes || "")}
-      </div>
-      <dl class="preview-evidence">
-        <dt>${escapeHtml(t("sender"))}</dt>
-        <dd>${escapeHtml(event.source_email_sender || "-")}</dd>
-        <dt>${escapeHtml(t("evidence"))}</dt>
-        <dd>${escapeHtml(event.evidence || "-")}</dd>
-      </dl>
-    </article>
-  `).join("");
+  list.innerHTML = events.map((event, index) => {
+    let verificationBox = "";
+    if (event.verification_action) {
+      const actionClass = event.verification_action; // auto_add, needs_review, not_matching
+      const actionLabel = t({
+        auto_add: "actionAutoAdd",
+        needs_review: "actionNeedsReview",
+        not_matching: "actionNotMatching"
+      }[event.verification_action] || "actionNeedsReview");
+      
+      verificationBox = `
+        <div class="verification-status-box ${actionClass}">
+          <strong>${escapeHtml(t("verificationStatus"))}: ${escapeHtml(actionLabel)}</strong>
+          ${event.verification_reason ? `<p style="margin: 4px 0 0; font-size: 10px;">${escapeHtml(t("aiReason"))}: ${escapeHtml(event.verification_reason)}</p>` : ''}
+        </div>
+      `;
+    }
+
+    return `
+      <article class="preview-event" data-preview-index="${index}">
+        ${verificationBox}
+        <p class="preview-hint">${escapeHtml(t("editBeforeSaving"))}</p>
+        <div class="preview-grid">
+          ${previewInput("title", t("title"), event.title)}
+          ${previewSelect("event_type", t("eventType"), event.event_type)}
+          ${previewInput("due_date", t("date"), event.due_date)}
+          ${previewInput(
+            "course_name",
+            t("course"),
+            event.course_name || event.course_code || ""
+          )}
+          ${previewInput("location", t("location"), event.location || "")}
+          ${previewInput("notes", t("notes"), event.notes || "")}
+        </div>
+        <dl class="preview-evidence">
+          <dt>${escapeHtml(t("sender"))}</dt>
+          <dd>${escapeHtml(event.source_email_sender || "-")}</dd>
+          <dt>${escapeHtml(t("evidence"))}</dt>
+          <dd>${escapeHtml(event.evidence || "-")}</dd>
+        </dl>
+      </article>
+    `;
+  }).join("");
   list.querySelectorAll("[data-preview-field]").forEach((control) => {
     const update = () => {
       const index = Number(control.closest(".preview-event").dataset.previewIndex);
@@ -220,6 +240,7 @@ function renderPreview(events) {
   });
   card.classList.remove("hidden");
 }
+
 
 function previewInput(field, label, value) {
   return `
@@ -450,6 +471,319 @@ async function saveApiUrl(shouldRefresh) {
 
 document.querySelector("#saveApiUrl").addEventListener("click", () => saveApiUrl(true));
 document.querySelector("#testApiUrl").addEventListener("click", () => saveApiUrl(false));
+
+// --- View Tab Routing ---
+document.querySelectorAll(".view-tab").forEach((tabButton) => {
+  tabButton.addEventListener("click", () => {
+    document.querySelectorAll(".view-tab").forEach((btn) => btn.classList.remove("active"));
+    tabButton.classList.add("active");
+    
+    const target = tabButton.dataset.target;
+    document.querySelectorAll(".view-section").forEach((section) => {
+      section.classList.toggle("hidden", section.id !== target);
+    });
+
+    if (target === "alertsSection") {
+      loadAlerts();
+    } else if (target === "coursesSection") {
+      loadCoursesAndSchedule();
+    }
+  });
+});
+
+// --- Alerts Dashboard ---
+async function loadAlerts() {
+  const alertsList = document.querySelector("#alertsList");
+  alertsList.innerHTML = `<div class="skeleton skeleton-line"></div>`;
+  try {
+    const alerts = await request({ type: "GET_ALERTS", status: "pending" });
+    renderAlerts(alerts);
+  } catch (error) {
+    alertsList.innerHTML = `<p class="error">${escapeHtml(error.message)}</p>`;
+  }
+}
+
+function renderAlerts(alerts) {
+  const alertsList = document.querySelector("#alertsList");
+  if (!alerts.length) {
+    alertsList.innerHTML = `<div class="empty">${escapeHtml(t("noAlerts"))}</div>`;
+    return;
+  }
+  
+  alertsList.innerHTML = alerts.map((alert) => {
+    const event = alert.event_data || {};
+    const alertType = alert.alert_type; // needs_review, not_matching
+    const actionLabel = t({
+      needs_review: "actionNeedsReview",
+      not_matching: "actionNotMatching"
+    }[alertType] || "actionNeedsReview");
+
+    return `
+      <article class="glass alert-item" data-alert-id="${alert.id}">
+        <div class="alert-header">
+          <h3>${escapeHtml(event.title || t("eventOther"))}</h3>
+          <span class="alert-badge ${alertType}">${escapeHtml(actionLabel)}</span>
+        </div>
+        ${alert.ai_reason ? `<div class="alert-reason"><strong>${escapeHtml(t("aiReason"))}:</strong> ${escapeHtml(alert.ai_reason)}</div>` : ''}
+        
+        <div class="alert-edit-grid">
+          <label>
+            <span>${escapeHtml(t("title"))}</span>
+            <input class="alert-field" data-field="title" value="${escapeHtml(event.title || '')}">
+          </label>
+          <label>
+            <span>${escapeHtml(t("eventType"))}</span>
+            <select class="alert-field" data-field="event_type">
+              <option value="exam" ${event.event_type === 'exam' ? 'selected' : ''}>${escapeHtml(t("eventExam"))}</option>
+              <option value="deadline" ${event.event_type === 'deadline' ? 'selected' : ''}>${escapeHtml(t("eventDeadline"))}</option>
+              <option value="quiz" ${event.event_type === 'quiz' ? 'selected' : ''}>${escapeHtml(t("eventQuiz"))}</option>
+              <option value="lecture" ${event.event_type === 'lecture' ? 'selected' : ''}>${escapeHtml(t("eventLecture"))}</option>
+              <option value="other" ${event.event_type === 'other' ? 'selected' : ''}>${escapeHtml(t("eventOther"))}</option>
+            </select>
+          </label>
+          <label>
+            <span>${escapeHtml(t("date"))}</span>
+            <input class="alert-field" data-field="due_date" value="${escapeHtml(event.due_date || '')}">
+          </label>
+          <label>
+            <span>${escapeHtml(t("course"))}</span>
+            <input class="alert-field" data-field="course_name" value="${escapeHtml(event.course_name || event.course_code || '')}">
+          </label>
+          <label style="grid-column: 1 / -1;">
+            <span>${escapeHtml(t("location"))}</span>
+            <input class="alert-field" data-field="location" value="${escapeHtml(event.location || '')}">
+          </label>
+          <label style="grid-column: 1 / -1;">
+            <span>${escapeHtml(t("notes"))}</span>
+            <input class="alert-field" data-field="notes" value="${escapeHtml(event.notes || '')}">
+          </label>
+        </div>
+
+        <div class="alert-actions">
+          <button class="secondary btn-reject" type="button" data-action="reject">${escapeHtml(t("reject"))}</button>
+          <button class="primary btn-approve" type="button" data-action="confirm">
+            <span class="button-label">${escapeHtml(t("approve"))}</span>
+            <span class="button-loader" aria-hidden="true"></span>
+          </button>
+        </div>
+      </article>
+    `;
+  }).join("");
+
+  // Bind actions
+  alertsList.querySelectorAll(".alert-item").forEach((item) => {
+    const alertId = item.dataset.alertId;
+    const btnApprove = item.querySelector('[data-action="confirm"]');
+    const btnReject = item.querySelector('[data-action="reject"]');
+
+    btnApprove.addEventListener("click", async () => {
+      // Gather edited event data
+      const event_data = {};
+      item.querySelectorAll(".alert-field").forEach((field) => {
+        event_data[field.dataset.field] = field.value;
+      });
+
+      // Preserve hidden fields if present in original
+      const originalAlert = alerts.find(a => a.id === alertId);
+      const originalEvent = originalAlert?.event_data || {};
+      event_data.all_day = originalEvent.all_day || false;
+      event_data.confidence = originalEvent.confidence || "medium";
+
+      try {
+        setBusy(btnApprove, true);
+        await request({
+          type: "RESOLVE_ALERT",
+          alertId,
+          payload: { action: "confirm", event_data }
+        });
+        globalStatus.textContent = t("alertResolved");
+        loadAlerts();
+        refresh(); // to refresh recent list
+      } catch (err) {
+        globalStatus.textContent = err.message;
+      } finally {
+        setBusy(btnApprove, false);
+      }
+    });
+
+    btnReject.addEventListener("click", async () => {
+      try {
+        setBusy(btnReject, true);
+        await request({
+          type: "RESOLVE_ALERT",
+          alertId,
+          payload: { action: "reject" }
+        });
+        globalStatus.textContent = t("alertResolved");
+        loadAlerts();
+      } catch (err) {
+        globalStatus.textContent = err.message;
+      } finally {
+        setBusy(btnReject, false);
+      }
+    });
+  });
+}
+
+// --- Courses & Schedule Dashboard ---
+async function loadCoursesAndSchedule() {
+  const coursesList = document.querySelector("#coursesList");
+  const scheduleList = document.querySelector("#scheduleList");
+  coursesList.innerHTML = `<div class="skeleton skeleton-line"></div>`;
+  scheduleList.innerHTML = `<div class="skeleton skeleton-line"></div>`;
+  
+  try {
+    const [courses, schedule] = await Promise.all([
+      request({ type: "GET_COURSES" }),
+      request({ type: "GET_SCHEDULE" })
+    ]);
+    
+    renderCourses(courses);
+    renderSchedule(schedule);
+    populateCourseDropdown(courses);
+  } catch (error) {
+    coursesList.innerHTML = `<p class="error">${escapeHtml(error.message)}</p>`;
+    scheduleList.innerHTML = `<p class="error">${escapeHtml(error.message)}</p>`;
+  }
+}
+
+function renderCourses(courses) {
+  const coursesList = document.querySelector("#coursesList");
+  if (!courses.length) {
+    coursesList.innerHTML = `<div class="empty">${escapeHtml(t("noCourses"))}</div>`;
+    return;
+  }
+  
+  coursesList.innerHTML = courses.map((course) => `
+    <div class="course-row">
+      <div class="course-info">
+        <h3>${escapeHtml(course.course_code)}</h3>
+        <p>${escapeHtml(course.course_name)}</p>
+        ${course.teaching_plan ? `<p style="font-size: 10px; font-style: italic;">${escapeHtml(course.teaching_plan)}</p>` : ''}
+      </div>
+      <button class="btn-delete" data-code="${escapeHtml(course.course_code)}">${escapeHtml(t("delete"))}</button>
+    </div>
+  `).join("");
+
+  coursesList.querySelectorAll(".btn-delete").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const courseCode = btn.dataset.code;
+      try {
+        btn.disabled = true;
+        await request({ type: "DELETE_COURSE", courseCode });
+        loadCoursesAndSchedule();
+      } catch (err) {
+        globalStatus.textContent = err.message;
+      }
+    });
+  });
+}
+
+function renderSchedule(slots) {
+  const scheduleList = document.querySelector("#scheduleList");
+  if (!slots.length) {
+    scheduleList.innerHTML = `<div class="empty">${escapeHtml(t("noSlots"))}</div>`;
+    return;
+  }
+
+  scheduleList.innerHTML = slots.map((slot) => `
+    <div class="schedule-row">
+      <div class="schedule-info">
+        <h3>${escapeHtml(slot.course_code)}</h3>
+        <p>${escapeHtml(t(slot.day_of_week))} · ${escapeHtml(slot.start_time.substring(0, 5))} - ${escapeHtml(slot.end_time.substring(0, 5))}</p>
+        ${slot.location ? `<p style="font-size: 10px;">${escapeHtml(slot.location)}</p>` : ''}
+      </div>
+      <button class="btn-delete" data-id="${escapeHtml(slot.id)}">${escapeHtml(t("delete"))}</button>
+    </div>
+  `).join("");
+
+  scheduleList.querySelectorAll(".btn-delete").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const slotId = btn.dataset.id;
+      try {
+        btn.disabled = true;
+        await request({ type: "DELETE_SCHEDULE", slotId });
+        loadCoursesAndSchedule();
+      } catch (err) {
+        globalStatus.textContent = err.message;
+      }
+    });
+  });
+}
+
+function populateCourseDropdown(courses) {
+  const select = document.querySelector("#scheduleCourseCode");
+  select.innerHTML = courses.map(c => `
+    <option value="${escapeHtml(c.course_code)}">${escapeHtml(c.course_code)} - ${escapeHtml(c.course_name)}</option>
+  `).join("");
+}
+
+// Course Form Submit
+document.querySelector("#courseForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const errorEl = document.querySelector("#courseError");
+  errorEl.textContent = "";
+  const code = document.querySelector("#courseCode").value.trim().toUpperCase();
+  const name = document.querySelector("#courseName").value.trim();
+  const plan = document.querySelector("#teachingPlan").value.trim();
+
+  if (!code || !name) return;
+  
+  const submitBtn = document.querySelector("#courseSubmit");
+  try {
+    setBusy(submitBtn, true);
+    await request({
+      type: "CREATE_COURSE",
+      payload: { course_code: code, course_name: name, teaching_plan: plan || null }
+    });
+    document.querySelector("#courseCode").value = "";
+    document.querySelector("#courseName").value = "";
+    document.querySelector("#teachingPlan").value = "";
+    loadCoursesAndSchedule();
+  } catch (err) {
+    errorEl.textContent = err.message;
+  } finally {
+    setBusy(submitBtn, false);
+  }
+});
+
+// Schedule Form Submit
+document.querySelector("#scheduleForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const errorEl = document.querySelector("#scheduleError");
+  errorEl.textContent = "";
+  const code = document.querySelector("#scheduleCourseCode").value;
+  const day = document.querySelector("#scheduleDayOfWeek").value;
+  const start = document.querySelector("#scheduleStartTime").value;
+  const end = document.querySelector("#scheduleEndTime").value;
+  const loc = document.querySelector("#scheduleLocation").value.trim();
+
+  if (!code || !day || !start || !end) return;
+
+  const submitBtn = document.querySelector("#scheduleSubmit");
+  try {
+    setBusy(submitBtn, true);
+    await request({
+      type: "CREATE_SCHEDULE",
+      payload: {
+        course_code: code,
+        day_of_week: day,
+        start_time: start + ":00",
+        end_time: end + ":00",
+        location: loc || null
+      }
+    });
+    document.querySelector("#scheduleStartTime").value = "";
+    document.querySelector("#scheduleEndTime").value = "";
+    document.querySelector("#scheduleLocation").value = "";
+    loadCoursesAndSchedule();
+  } catch (err) {
+    errorEl.textContent = err.message;
+  } finally {
+    setBusy(submitBtn, false);
+  }
+});
+
 
 async function initialize() {
   try {

@@ -138,7 +138,7 @@ def resolve_alert(
     # Perform resolution
     if payload.action == "confirm":
         # Create event
-        event_data = alert["event_data"]
+        event_data = payload.event_data if payload.event_data is not None else alert["event_data"]
         due_date = datetime.fromisoformat(event_data["due_date"].replace("Z", "+00:00"))
         all_day = event_data.get("all_day", False)
         
@@ -160,4 +160,5 @@ def resolve_alert(
         status_str = "rejected"
 
     row = storage.update_alert_status(user["id"], alert_id, status_str)
+
     return VerificationAlertResponse.model_validate(row)
